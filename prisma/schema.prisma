@@ -1,16 +1,20 @@
-// Упрощённая схема для локальной разработки без базы данных
-// Для работы с mock-данными см. lib/mock-data.ts
+// ВекторФорм — production schema.
+// Источник истины параметров расчёта стоимости — таблицы Partner, PartnerPricing,
+// PrinterProfile и Filament. Каждый партнёр задаёт свои значения в личном кабинете,
+// именно они подставляются в калькулятор печати при оформлении заказа.
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// База данных отключена для локальной разработки
-// Раскомментируйте для работы с реальной базой:
-// datasource db {
-//   provider = "postgresql"
-//   url      = env("DATABASE_URL")
-// }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
 
 enum UserRole {
   GUEST
@@ -36,13 +40,14 @@ enum OrderStatus {
 
 enum MaterialType {
   PLA
-  ABS
+  PLA_PLUS
   PETG
+  ABS
+  ASA
   TPU
   NYLON
   RESIN
-  METAL
-  CERAMIC
+  OTHER
 }
 
 enum PrintQuality {
@@ -52,115 +57,194 @@ enum PrintQuality {
   ULTRA
 }
 
+enum PrinterTech {
+  FDM
+  SLA
+  SLS
+  MJF
+}
+
+enum AssignmentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// ============================================================================
+// Auth (NextAuth + credentials)
+// ============================================================================
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
+  emailVerified DateTime?
   name          String?
   image         String?
+  passwordHash  String?
   role          UserRole  @default(CUSTOMER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Relationships
-  authoredModels   Model3D[]
-  orders           Order[]
-  partnerProfile   Partner?
-  authorProfile    Author?
-  reviews          Review[]
-  favorites        Favorite[]
-  cartItems        CartItem[]
-  transactions     Transaction[]
+  accounts Account[]
+  sessions Session[]
+
+  authoredModels    Model3D[]         @relation("UploaderModels")
+  orders            Order[]
+  partnerProfile    Partner?
+  authorProfile     Author?
+  reviews           Review[]
+  favorites         Favorite[]
+  cartItems         CartItem[]
+  transactions      Transaction[]
   shippingAddresses ShippingAddress[]
 }
 
-model Author {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  bio         String?
-  website     String?
-  socialLinks Json?
-  rating      Float    @default(0.0)
-  totalEarnings Decimal @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
-  // Relationships
-  user        User      @relation(fields: [userId], references: [id])
-  models      Model3D[]
-  royalties   Royalty[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// Authors / Partners
+// ============================================================================
+
+model Author {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  bio           String?
+  website       String?
+  socialLinks   Json?
+  rating        Float    @default(0.0)
+  totalEarnings Decimal  @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  models    Model3D[]
+  royalties Royalty[]
 }
 
 model Partner {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  companyName     String
-  description     String?
-  address         String
-  city            String
-  country         String
-  postalCode      String
-  rating          Float    @default(0.0)
-  isActive        Boolean  @default(true)
-  maxPrintVolume  Float    // cm³
-  availableMaterials Json   // Array of MaterialType
-  equipment       Equipment[]
-  pricingRules    Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  companyName String
+  description String?
+  address     String
+  city        String
+  region      String?
+  country     String   @default("RU")
+  postalCode  String
+  phone       String?
+  rating      Float    @default(0.0)
+  isActive    Boolean  @default(true)
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  // Relationships
-  user            User      @relation(fields: [userId], references: [id])
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pricing         PartnerPricing?
+  printers        PrinterProfile[]
+  filaments       Filament[]
   assignedOrders  OrderAssignment[]
   completedOrders Order[]
 }
 
-model Equipment {
-  id          String   @id @default(cuid())
+// Тарифы партнёра — подставляются в калькулятор стоимости.
+// См. формулы в lib/pricing.ts.
+model PartnerPricing {
+  id        String @id @default(cuid())
+  partnerId String @unique
+
+  electricityRate    Decimal  @default(6.00)
+  laborRate          Decimal  @default(500)
+  consumablesPerHour Decimal  @default(5)
+  marginPct          Decimal  @default(30)
+  minOrderPrice      Decimal  @default(300)
+  setupMinutes       Int      @default(15)
+  postProcessMinutes Int      @default(10)
+  wastePct           Decimal  @default(7)
+  defaultShipping    Decimal  @default(350)
+  currency           String   @default("RUB")
+  updatedAt          DateTime @updatedAt
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+// Принтер партнёра — мощность (электричество), ресурс (амортизация),
+// build volume (фильтрация заказов).
+model PrinterProfile {
+  id                 String         @id @default(cuid())
+  partnerId          String
+  name               String
+  tech               PrinterTech    @default(FDM)
+  buildX             Float
+  buildY             Float
+  buildZ             Float
+  powerWatts         Int            @default(120)
+  purchasePrice      Decimal        @default(35000)
+  lifetimeHours      Int            @default(5000)
+  volumetricSpeed    Float          @default(12)
+  supportedMaterials MaterialType[]
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+// Филамент / смола партнёра.
+model Filament {
+  id          String       @id @default(cuid())
   partnerId   String
-  name        String
-  type        String   // FDM, SLA, SLS, etc.
-  buildVolume Json     // {x, y, z} in mm
-  materials   Json     // Array of MaterialType
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  type        MaterialType
+  brand       String?
+  colorName   String
+  colorHex    String?
+  spoolPrice  Decimal
+  spoolWeight Int          @default(1000)
+  density     Float        @default(1.24)
+  stockGrams  Int          @default(1000)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  partner     Partner  @relation(fields: [partnerId], references: [id])
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 }
 
-model Model3D {
-  id              String   @id @default(cuid())
-  title           String
-  description     String
-  shortDescription String?
-  categoryId      String
-  authorId        String
-  price           Decimal?
-  isFree          Boolean  @default(false)
-  licenseType     String   @default("Standard")
-  fileFormat      String
-  fileSize        Float    // MB
-  dimensions      Json     // {width, height, depth} in mm
-  volume          Float    // cm³
-  thumbnailUrl    String?
-  previewImages   String[] // Array of image URLs
-  tags            String[]
-  downloadCount   Int      @default(0)
-  printCount      Int      @default(0)
-  rating          Float    @default(0.0)
-  isPublished     Boolean  @default(true)
-  isFeatured      Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relationships
-  category    ModelCategory @relation(fields: [categoryId], references: [id])
-  author      Author        @relation(fields: [authorId], references: [id])
-  files       ModelFile[]
-  reviews     Review[]
-  favorites   Favorite[]
-  orders      Order[]
-  similarModels SimilarModel[]
-}
+// ============================================================================
+// Marketplace
+// ============================================================================
 
 model ModelCategory {
   id          String   @id @default(cuid())
@@ -172,166 +256,248 @@ model ModelCategory {
   order       Int      @default(0)
   createdAt   DateTime @default(now())
 
-  // Relationships
-  parent      ModelCategory? @relation("CategoryToCategory", fields: [parentId], references: [id])
-  children    ModelCategory[] @relation("CategoryToCategory")
-  models      Model3D[]
+  parent   ModelCategory?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children ModelCategory[] @relation("CategoryToCategory")
+  models   Model3D[]
+}
+
+model Model3D {
+  id               String   @id @default(cuid())
+  title            String
+  description      String
+  shortDescription String?
+  categoryId       String
+  authorId         String
+  uploaderId       String?
+  price            Decimal?
+  isFree           Boolean  @default(false)
+  licenseType      String   @default("Standard")
+  fileFormat       String
+  fileSize         Float
+  dimWidth         Float
+  dimHeight        Float
+  dimDepth         Float
+  volume           Float
+  thumbnailUrl     String?
+  previewImages    String[]
+  tags             String[]
+  downloadCount    Int      @default(0)
+  printCount       Int      @default(0)
+  rating           Float    @default(0.0)
+  isPublished      Boolean  @default(true)
+  isFeatured       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  category  ModelCategory @relation(fields: [categoryId], references: [id])
+  author    Author        @relation(fields: [authorId], references: [id])
+  uploader  User?         @relation("UploaderModels", fields: [uploaderId], references: [id])
+  files     ModelFile[]
+  reviews   Review[]
+  favorites Favorite[]
+  cartItems CartItem[]
+  orders    Order[]
+  royalties Royalty[]
 }
 
 model ModelFile {
-  id          String   @id @default(cuid())
-  modelId     String
-  fileName    String
-  fileUrl     String
-  fileType    String   // STL, OBJ, 3MF, etc.
-  fileSize    Float    // MB
-  version     String   @default("1.0")
-  isPrimary   Boolean  @default(true)
-  uploadedAt  DateTime @default(now())
+  id         String   @id @default(cuid())
+  modelId    String
+  fileName   String
+  fileUrl    String
+  fileType   String
+  fileSize   Float
+  version    String   @default("1.0")
+  isPrimary  Boolean  @default(true)
+  uploadedAt DateTime @default(now())
 
-  model       Model3D  @relation(fields: [modelId], references: [id])
+  model Model3D @relation(fields: [modelId], references: [id], onDelete: Cascade)
 }
 
-model SimilarModel {
-  id          String   @id @default(cuid())
-  modelId     String
-  similarToId String
-
-  model       Model3D  @relation("SimilarFrom", fields: [modelId], references: [id])
-  similarTo   Model3D  @relation("SimilarTo", fields: [similarToId], references: [id])
-
-  @@unique([modelId, similarToId])
+// Загруженный пользователем STL/3MF до создания заказа — результат анализа
+// кешируем здесь, чтобы пересчитывать стоимость без повторной загрузки.
+model UploadedFile {
+  id            String   @id @default(cuid())
+  userId        String?
+  fileName      String
+  fileUrl       String
+  fileType      String
+  fileSize      Int
+  volumeCm3     Float
+  bboxX         Float
+  bboxY         Float
+  bboxZ         Float
+  surfaceArea   Float?
+  triangleCount Int?
+  needsSupports Boolean  @default(false)
+  isValid       Boolean  @default(true)
+  issues        Json?
+  createdAt     DateTime @default(now())
 }
+
+// ============================================================================
+// Orders / Payments
+// ============================================================================
 
 model Order {
-  id              String       @id @default(cuid())
-  orderNumber     String       @unique
-  customerId      String
-  modelId         String?
-  uploadedFileUrl String?
-  status          OrderStatus  @default(DRAFT)
-  material        MaterialType
-  color           String?
-  quality         PrintQuality @default(STANDARD)
-  dimensions      Json         // Custom dimensions if scaled
-  quantity        Int          @default(1)
-  totalAmount     Decimal
-  taxAmount       Decimal      @default(0)
-  shippingAmount  Decimal      @default(0)
-  discountAmount  Decimal      @default(0)
-  finalAmount     Decimal
-  currency        String       @default("USD")
+  id             String       @id @default(cuid())
+  orderNumber    String       @unique
+  customerId     String
+  modelId        String?
+  uploadedFileId String?
+  status         OrderStatus  @default(DRAFT)
+  material       MaterialType
+  filamentId     String?
+  color          String?
+  quality        PrintQuality @default(STANDARD)
+  infillPct      Int          @default(20)
+  quantity       Int          @default(1)
+  scale          Float        @default(1.0)
+
+  totalAmount    Decimal
+  taxAmount      Decimal @default(0)
+  shippingAmount Decimal @default(0)
+  discountAmount Decimal @default(0)
+  finalAmount    Decimal
+  currency       String  @default("RUB")
+
   shippingAddress Json
   billingAddress  Json?
   customerNotes   String?
-  estimatedPrintTime  Int?     // hours
+
+  estimatedPrintHours Float?
   estimatedDelivery   DateTime?
   printedByPartnerId  String?
-  assignedAt      DateTime?
-  startedPrinting DateTime?
-  finishedPrinting DateTime?
-  shippedAt       DateTime?
-  deliveredAt     DateTime?
-  cancelledAt     DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
 
-  // Relationships
-  customer        User        @relation(fields: [customerId], references: [id])
-  model           Model3D?    @relation(fields: [modelId], references: [id])
-  printedBy       Partner?    @relation(fields: [printedByPartnerId], references: [id])
-  calculation     PrintCalculation?
-  assignments     OrderAssignment[]
-  transactions    Transaction[]
+  assignedAt       DateTime?
+  startedPrinting  DateTime?
+  finishedPrinting DateTime?
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+  cancelledAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer     User              @relation(fields: [customerId], references: [id])
+  model        Model3D?          @relation(fields: [modelId], references: [id])
+  printedBy    Partner?          @relation(fields: [printedByPartnerId], references: [id])
+  calculation  PrintCalculation?
+  assignments  OrderAssignment[]
+  transactions Transaction[]
+  royalties    Royalty[]
 }
 
+// Снимок расчёта стоимости в момент оформления заказа.
+// Поля повторяют формулы из lib/pricing.ts.
 model PrintCalculation {
-  id              String   @id @default(cuid())
-  orderId         String   @unique
-  modelVolume     Float    // cm³
-  materialPrice   Decimal  // per cm³
-  printTime       Int      // hours
-  printCost       Decimal  // per hour
-  supportCost     Decimal
-  postProcessing  Decimal
-  complexityMultiplier Float @default(1.0)
-  platformFee     Decimal
-  partnerMargin   Decimal
-  shippingCost    Decimal
-  subtotal        Decimal
-  total           Decimal
-  currency        String   @default("USD")
+  id      String @id @default(cuid())
+  orderId String @unique
+
+  volumeCm3           Float
+  weightGrams         Float
+  printHours          Float
+  materialDensity     Float
+  pricePerGram        Decimal
+  powerWatts          Int
+  electricityRate     Decimal
+  amortizationPerHour Decimal
+  laborRate           Decimal
+  consumablesPerHour  Decimal
+  marginPct           Decimal
+  platformFeePct      Decimal
+  wastePct            Decimal
+
+  materialCost     Decimal
+  electricityCost  Decimal
+  amortizationCost Decimal
+  laborCost        Decimal
+  consumablesCost  Decimal
+  wasteCost        Decimal
+  costBase         Decimal
+
+  partnerMargin Decimal
+  platformFee   Decimal
+  shippingCost  Decimal
+
+  subtotal Decimal
+  total    Decimal
+  currency String  @default("RUB")
+
   calculationDate DateTime @default(now())
   isValid         Boolean  @default(true)
 
-  order           Order    @relation(fields: [orderId], references: [id])
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model OrderAssignment {
-  id          String   @id @default(cuid())
-  orderId     String
-  partnerId   String
-  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  id            String           @id @default(cuid())
+  orderId       String
+  partnerId     String
+  status        AssignmentStatus @default(PENDING)
   proposedPrice Decimal
-  partnerNotes String?
-  assignedAt   DateTime @default(now())
-  respondedAt  DateTime?
+  partnerNotes  String?
+  assignedAt    DateTime         @default(now())
+  respondedAt   DateTime?
   responseNotes String?
 
-  order       Order   @relation(fields: [orderId], references: [id])
-  partner     Partner @relation(fields: [partnerId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@unique([orderId, partnerId])
 }
 
 model Transaction {
-  id          String   @id @default(cuid())
-  orderId     String?
-  userId      String
-  type        String   // PAYMENT, ROYALTY, PAYOUT, REFUND
-  amount      Decimal
-  currency    String   @default("USD")
-  status      String   @default("PENDING") // PENDING, COMPLETED, FAILED
+  id            String    @id @default(cuid())
+  orderId       String?
+  userId        String
+  type          String
+  amount        Decimal
+  currency      String    @default("RUB")
+  status        String    @default("PENDING")
   paymentMethod String?
-  transactionId String? // External payment ID
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  processedAt DateTime?
+  externalId    String?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  processedAt   DateTime?
 
-  order       Order?   @relation(fields: [orderId], references: [id])
-  user        User     @relation(fields: [userId], references: [id])
+  order Order? @relation(fields: [orderId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
 }
 
 model Royalty {
-  id          String   @id @default(cuid())
-  authorId    String
-  modelId     String
-  orderId     String?
-  amount      Decimal
-  percentage  Float    // Royalty percentage
-  status      String   @default("PENDING") // PENDING, PAID
-  paidAt      DateTime?
-  createdAt   DateTime @default(now())
+  id         String    @id @default(cuid())
+  authorId   String
+  modelId    String
+  orderId    String?
+  amount     Decimal
+  percentage Float
+  status     String    @default("PENDING")
+  paidAt     DateTime?
+  createdAt  DateTime  @default(now())
 
-  author      Author   @relation(fields: [authorId], references: [id])
-  model       Model3D  @relation(fields: [modelId], references: [id])
-  order       Order?   @relation(fields: [orderId], references: [id])
+  author Author  @relation(fields: [authorId], references: [id])
+  model  Model3D @relation(fields: [modelId], references: [id])
+  order  Order?  @relation(fields: [orderId], references: [id])
 }
 
-model Review {
-  id          String   @id @default(cuid())
-  userId      String
-  modelId     String?
-  orderId     String?
-  rating      Int      // 1-5
-  comment     String?
-  isVerified  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// ============================================================================
+// Customer-facing helpers
+// ============================================================================
 
-  user        User     @relation(fields: [userId], references: [id])
-  model       Model3D? @relation(fields: [modelId], references: [id])
-  order       Order?   @relation(fields: [orderId], references: [id])
+model Review {
+  id         String   @id @default(cuid())
+  userId     String
+  modelId    String?
+  orderId    String?
+  rating     Int
+  comment    String?
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user  User     @relation(fields: [userId], references: [id])
+  model Model3D? @relation(fields: [modelId], references: [id])
 }
 
 model Favorite {
@@ -340,8 +506,8 @@ model Favorite {
   modelId   String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
-  model     Model3D  @relation(fields: [modelId], references: [id])
+  user  User    @relation(fields: [userId], references: [id])
+  model Model3D @relation(fields: [modelId], references: [id])
 
   @@unique([userId, modelId])
 }
@@ -354,44 +520,33 @@ model CartItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id])
-  model     Model3D  @relation(fields: [modelId], references: [id])
+  user  User    @relation(fields: [userId], references: [id])
+  model Model3D @relation(fields: [modelId], references: [id])
 
   @@unique([userId, modelId])
 }
 
 model ShippingAddress {
-  id          String   @id @default(cuid())
-  userId      String
-  fullName    String
+  id           String   @id @default(cuid())
+  userId       String
+  fullName     String
   addressLine1 String
   addressLine2 String?
-  city        String
-  state       String?
-  postalCode  String
-  country     String
-  phone       String?
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  city         String
+  region       String?
+  postalCode   String
+  country      String   @default("RU")
+  phone        String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model PricingCoefficient {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  value       Decimal
-  minValue    Decimal?
-  maxValue    Decimal?
-  isActive    Boolean  @default(true)
-  appliesTo   String?  // MATERIAL, PRINT_TIME, COMPLEXITY, etc.
-  materialType MaterialType?
-  region      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
+// ============================================================================
+// Platform config (комиссия маркетплейса и пр.)
+// ============================================================================
 
 model PlatformConfig {
   id          String   @id @default(cuid())

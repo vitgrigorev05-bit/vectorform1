@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# Local upload storage (на проде заменить на S3/R2)
+/public/uploads
 
 # vercel
 .vercel

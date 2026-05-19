@@ -1,360 +1,319 @@
-import { PrismaClient } from '@prisma/client'
-import { hash } from 'bcryptjs'
+import { PrismaClient } from "@prisma/client"
+import { hash } from "bcryptjs"
 
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Начало заполнения базы данных демо-данными...')
+  console.log("🌱 Сидим базу...")
 
-  // Очистка существующих данных
-  await prisma.transaction.deleteMany()
+  // Чистим в порядке внешних ключей
+  await prisma.printCalculation.deleteMany()
+  await prisma.orderAssignment.deleteMany()
   await prisma.royalty.deleteMany()
+  await prisma.transaction.deleteMany()
+  await prisma.order.deleteMany()
+  await prisma.uploadedFile.deleteMany()
+  await prisma.modelFile.deleteMany()
   await prisma.review.deleteMany()
   await prisma.favorite.deleteMany()
   await prisma.cartItem.deleteMany()
-  await prisma.shippingAddress.deleteMany()
-  await prisma.orderAssignment.deleteMany()
-  await prisma.printCalculation.deleteMany()
-  await prisma.order.deleteMany()
-  await prisma.modelFile.deleteMany()
-  await prisma.similarModel.deleteMany()
   await prisma.model3D.deleteMany()
   await prisma.modelCategory.deleteMany()
-  await prisma.equipment.deleteMany()
+  await prisma.filament.deleteMany()
+  await prisma.printerProfile.deleteMany()
+  await prisma.partnerPricing.deleteMany()
   await prisma.partner.deleteMany()
   await prisma.author.deleteMany()
+  await prisma.shippingAddress.deleteMany()
+  await prisma.session.deleteMany()
+  await prisma.account.deleteMany()
   await prisma.user.deleteMany()
-  await prisma.pricingCoefficient.deleteMany()
   await prisma.platformConfig.deleteMany()
 
-  console.log('🗑️ Существующие данные очищены')
+  const passwordHash = await hash("demo123", 12)
 
-  // Создание пользователей
-  const demoPassword = await hash('demo123', 10)
+  const [customer, authorUser, partnerUser1, partnerUser2, admin] = await Promise.all([
+    prisma.user.create({
+      data: { email: "customer@demo.com", name: "Иван Иванов", role: "CUSTOMER", passwordHash },
+    }),
+    prisma.user.create({
+      data: { email: "author@demo.com", name: "ДизайнСтудия", role: "AUTHOR", passwordHash },
+    }),
+    prisma.user.create({
+      data: { email: "partner@demo.com", name: "3DPrintPro", role: "PARTNER", passwordHash },
+    }),
+    prisma.user.create({
+      data: { email: "partner2@demo.com", name: "MakersHub", role: "PARTNER", passwordHash },
+    }),
+    prisma.user.create({
+      data: { email: "admin@demo.com", name: "Администратор", role: "ADMIN", passwordHash },
+    }),
+  ])
 
-  const users = await prisma.user.createManyAndReturn({
-    data: [
-      {
-        email: 'customer@demo.com',
-        name: 'Иван Иванов',
-        role: 'CUSTOMER',
-      },
-      {
-        email: 'author@demo.com',
-        name: 'ДизайнСтудия',
-        role: 'AUTHOR',
-      },
-      {
-        email: 'partner@demo.com',
-        name: '3DPrintPro',
-        role: 'PARTNER',
-      },
-      {
-        email: 'admin@demo.com',
-        name: 'Администратор',
-        role: 'ADMIN',
-      },
-    ],
-  })
-
-  console.log(`👥 Создано ${users.length} пользователей`)
-
-  // Создание автора
-  const authorUser = users.find(u => u.email === 'author@demo.com')
-  if (authorUser) {
-    await prisma.author.create({
-      data: {
-        userId: authorUser.id,
-        bio: 'Профессиональный дизайнер 3D-моделей с 10-летним опытом',
-        website: 'https://designstudio.example.com',
-        socialLinks: {
-          instagram: '@designstudio',
-          behance: 'designstudio',
-        },
-        rating: 4.8,
-        totalEarnings: 2845,
-      },
-    })
-    console.log('🎨 Создан автор')
-  }
-
-  // Создание партнёра
-  const partnerUser = users.find(u => u.email === 'partner@demo.com')
-  if (partnerUser) {
-    await prisma.partner.create({
-      data: {
-        userId: partnerUser.id,
-        companyName: '3DPrintPro',
-        description: 'Профессиональная студия 3D-печати с современным оборудованием',
-        address: 'г. Москва, ул. Тверская, д. 15',
-        city: 'Москва',
-        country: 'Россия',
-        postalCode: '125009',
-        rating: 4.8,
-        isActive: true,
-        maxPrintVolume: 5000,
-        availableMaterials: ['PLA', 'ABS', 'PETG', 'RESIN'],
-        pricingRules: {
-          basePrice: 5,
-          materialMultipliers: {
-            PLA: 1.0,
-            ABS: 1.2,
-            PETG: 1.3,
-            RESIN: 1.5,
-          },
-        },
-      },
-    })
-    console.log('🏭 Создан партнёр')
-
-    // Оборудование партнёра
-    const partner = await prisma.partner.findFirst({
-      where: { userId: partnerUser.id },
-    })
-
-    if (partner) {
-      await prisma.equipment.create({
-        data: {
-          partnerId: partner.id,
-          name: 'Prusa i3 MK3S+',
-          type: 'FDM',
-          buildVolume: { x: 250, y: 210, z: 210 },
-          materials: ['PLA', 'ABS', 'PETG'],
-          isActive: true,
-        },
-      })
-      await prisma.equipment.create({
-        data: {
-          partnerId: partner.id,
-          name: 'Anycubic Photon Mono X',
-          type: 'SLA',
-          buildVolume: { x: 192, y: 120, z: 245 },
-          materials: ['RESIN'],
-          isActive: true,
-        },
-      })
-      console.log('🖨️ Создано оборудование партнёра')
-    }
-  }
-
-  // Создание категорий
-  const categories = await prisma.modelCategory.createManyAndReturn({
-    data: [
-      { name: 'Украшения', slug: 'jewelry', description: 'Ювелирные изделия и бижутерия' },
-      { name: 'Аксессуары', slug: 'accessories', description: 'Чехлы, брелоки, аксессуары' },
-      { name: 'Fashion-дизайн', slug: 'fashion', description: 'Модные изделия и одежда' },
-      { name: 'Игрушки', slug: 'toys', description: 'Игрушки и развлечения' },
-      { name: 'Домашние предметы', slug: 'home', description: 'Предметы для дома и интерьера' },
-      { name: 'Инженерные детали', slug: 'engineering', description: 'Технические детали и прототипы' },
-      { name: 'Арт-объекты', slug: 'art', description: 'Художественные объекты и скульптуры' },
-      { name: 'Подарки', slug: 'gifts', description: 'Подарки и сувениры' },
-    ],
-  })
-
-  console.log(`📂 Создано ${categories.length} категорий`)
-
-  // Создание моделей (только если есть автор)
-  const author = await prisma.author.findFirst({
-    where: { user: { email: 'author@demo.com' } },
-  })
-
-  if (author && categories.length > 0) {
-    const models = await prisma.model3D.createManyAndReturn({
-      data: [
-        {
-          title: 'Кольцо с геометрическим узором',
-          description: 'Современное кольцо с уникальным геометрическим узором, идеально для 3D-печати из различных материалов.',
-          shortDescription: 'Геометрическое кольцо для 3D-печати',
-          categoryId: categories.find(c => c.slug === 'jewelry')!.id,
-          authorId: author.id,
-          price: 24.99,
-          isFree: false,
-          licenseType: 'Standard',
-          fileFormat: 'STL',
-          fileSize: 12.5,
-          dimensions: { width: 25, height: 25, depth: 8 },
-          volume: 15,
-          thumbnailUrl: 'https://storage.vectorforms.com/ring.jpg',
-          previewImages: [
-            'https://storage.vectorforms.com/ring-1.jpg',
-            'https://storage.vectorforms.com/ring-2.jpg',
-            'https://storage.vectorforms.com/ring-3.jpg',
-          ],
-          tags: ['ювелирка', 'мода', 'геометрия', 'кольцо'],
-          downloadCount: 1245,
-          printCount: 89,
-          rating: 4.8,
-          isPublished: true,
-          isFeatured: true,
-        },
-        {
-          title: 'Декоративная ваза',
-          description: 'Современная декоративная ваза с уникальным дизайном, отлично подходит для 3D-печати в качестве предмета интерьера.',
-          shortDescription: 'Декоративная ваза для интерьера',
-          categoryId: categories.find(c => c.slug === 'home')!.id,
-          authorId: author.id,
-          price: 0,
-          isFree: true,
-          licenseType: 'Creative Commons',
-          fileFormat: 'OBJ',
-          fileSize: 45.2,
-          dimensions: { width: 120, height: 180, depth: 120 },
-          volume: 320,
-          thumbnailUrl: 'https://storage.vectorforms.com/vase.jpg',
-          previewImages: [
-            'https://storage.vectorforms.com/vase-1.jpg',
-            'https://storage.vectorforms.com/vase-2.jpg',
-          ],
-          tags: ['интерьер', 'декор', 'ваза', 'дом'],
-          downloadCount: 2890,
-          printCount: 156,
-          rating: 4.5,
-          isPublished: true,
-          isFeatured: false,
-        },
-        {
-          title: 'Кастомизированный чехол для телефона',
-          description: 'Уникальный чехол для телефона с возможностью кастомизации под разные модели.',
-          shortDescription: 'Чехол для телефона с кастомизацией',
-          categoryId: categories.find(c => c.slug === 'accessories')!.id,
-          authorId: author.id,
-          price: 14.99,
-          isFree: false,
-          licenseType: 'Standard',
-          fileFormat: 'STL',
-          fileSize: 8.7,
-          dimensions: { width: 80, height: 160, depth: 15 },
-          volume: 45,
-          thumbnailUrl: 'https://storage.vectorforms.com/phonecase.jpg',
-          previewImages: [
-            'https://storage.vectorforms.com/phonecase-1.jpg',
-            'https://storage.vectorforms.com/phonecase-2.jpg',
-          ],
-          tags: ['чехол', 'гаджеты', 'персонализация', 'аксессуар'],
-          downloadCount: 876,
-          printCount: 42,
-          rating: 4.9,
-          isPublished: true,
-          isFeatured: true,
-        },
-      ],
-    })
-
-    console.log(`📦 Создано ${models.length} 3D-моделей`)
-
-    // Создание файлов для моделей
-    for (const model of models) {
-      await prisma.modelFile.create({
-        data: {
-          modelId: model.id,
-          fileName: `${model.title.toLowerCase().replace(/\s+/g, '-')}.stl`,
-          fileUrl: `https://storage.vectorforms.com/models/${model.id}/file.stl`,
-          fileType: 'STL',
-          fileSize: model.fileSize,
-          isPrimary: true,
-        },
-      })
-    }
-    console.log('📄 Созданы файлы моделей')
-  }
-
-  // Создание коэффициентов ценообразования
-  await prisma.pricingCoefficient.createMany({
-    data: [
-      {
-        name: 'base_material_pla',
-        description: 'Базовая цена материала PLA за см³',
-        value: 0.05,
-        appliesTo: 'MATERIAL',
-        materialType: 'PLA',
-        isActive: true,
-      },
-      {
-        name: 'base_material_abs',
-        description: 'Базовая цена материала ABS за см³',
-        value: 0.08,
-        appliesTo: 'MATERIAL',
-        materialType: 'ABS',
-        isActive: true,
-      },
-      {
-        name: 'print_time_hourly',
-        description: 'Стоимость часа печати',
-        value: 5.0,
-        appliesTo: 'PRINT_TIME',
-        isActive: true,
-      },
-      {
-        name: 'platform_fee_percentage',
-        description: 'Комиссия платформы',
-        value: 10.0,
-        appliesTo: 'PLATFORM_FEE',
-        isActive: true,
-      },
-      {
-        name: 'partner_margin_percentage',
-        description: 'Наценка партнёра',
-        value: 20.0,
-        appliesTo: 'PARTNER_MARGIN',
-        isActive: true,
-      },
-    ],
-  })
-
-  console.log('💰 Созданы ценовые коэффициенты')
-
-  // Создание конфигурации платформы
-  await prisma.platformConfig.create({
+  const author = await prisma.author.create({
     data: {
-      key: 'general_settings',
-      value: {
-        currency: 'USD',
-        defaultLanguage: 'ru',
-        maintenanceMode: false,
-        minWithdrawalAmount: 50,
-        authorRoyaltyPercentage: 70,
-      },
-      description: 'Основные настройки платформы',
+      userId: authorUser.id,
+      bio: "Студия 3D-дизайна, 10 лет опыта",
+      website: "https://designstudio.example.com",
+      rating: 4.8,
     },
   })
 
-  console.log('⚙️ Создана конфигурация платформы')
-
-  // Создание адреса доставки для клиента
-  const customerUser = users.find(u => u.email === 'customer@demo.com')
-  if (customerUser) {
-    await prisma.shippingAddress.create({
-      data: {
-        userId: customerUser.id,
-        fullName: 'Иван Иванов',
-        addressLine1: 'ул. Тверская, д. 15',
-        city: 'Москва',
-        country: 'Россия',
-        postalCode: '125009',
-        phone: '+7 (999) 123-45-67',
-        isDefault: true,
+  // Партнёр 1 — Москва, FDM, тарифы по Москве
+  const p1 = await prisma.partner.create({
+    data: {
+      userId: partnerUser1.id,
+      companyName: "3DPrintPro",
+      description: "Печать FDM и SLA в центре Москвы",
+      address: "ул. Тверская, д. 15",
+      city: "Москва",
+      region: "Москва",
+      country: "RU",
+      postalCode: "125009",
+      phone: "+7 495 000-00-00",
+      rating: 4.8,
+      isActive: true,
+      isVerified: true,
+    },
+  })
+  await prisma.partnerPricing.create({
+    data: {
+      partnerId: p1.id,
+      electricityRate: 8.5,
+      laborRate: 700,
+      consumablesPerHour: 6,
+      marginPct: 30,
+      minOrderPrice: 500,
+      setupMinutes: 15,
+      postProcessMinutes: 10,
+      wastePct: 7,
+      defaultShipping: 400,
+    },
+  })
+  const p1Printer = await prisma.printerProfile.create({
+    data: {
+      partnerId: p1.id,
+      name: "Bambu Lab P1S",
+      tech: "FDM",
+      buildX: 256,
+      buildY: 256,
+      buildZ: 256,
+      powerWatts: 130,
+      purchasePrice: 55000,
+      lifetimeHours: 5000,
+      volumetricSpeed: 18,
+      supportedMaterials: ["PLA", "PLA_PLUS", "PETG", "ABS", "ASA", "TPU"],
+    },
+  })
+  await prisma.printerProfile.create({
+    data: {
+      partnerId: p1.id,
+      name: "Anycubic Photon Mono X",
+      tech: "SLA",
+      buildX: 192,
+      buildY: 120,
+      buildZ: 245,
+      powerWatts: 100,
+      purchasePrice: 35000,
+      lifetimeHours: 3000,
+      volumetricSpeed: 5,
+      supportedMaterials: ["RESIN"],
+    },
+  })
+  await prisma.filament.createMany({
+    data: [
+      {
+        partnerId: p1.id,
+        type: "PLA",
+        brand: "Bestfilament",
+        colorName: "Чёрный",
+        colorHex: "#111111",
+        spoolPrice: 1490,
+        spoolWeight: 1000,
+        density: 1.24,
+        stockGrams: 4000,
       },
-    })
-    console.log('🏠 Создан адрес доставки клиента')
-  }
+      {
+        partnerId: p1.id,
+        type: "PETG",
+        brand: "Bestfilament",
+        colorName: "Прозрачный",
+        colorHex: "#cfeefb",
+        spoolPrice: 1990,
+        spoolWeight: 1000,
+        density: 1.27,
+        stockGrams: 3000,
+      },
+      {
+        partnerId: p1.id,
+        type: "TPU",
+        brand: "REC",
+        colorName: "Белый",
+        colorHex: "#ffffff",
+        spoolPrice: 2890,
+        spoolWeight: 1000,
+        density: 1.21,
+        stockGrams: 1000,
+      },
+    ],
+  })
 
-  console.log('✅ Демо-данные успешно созданы!')
-  console.log('\n📊 Сводка:')
-  console.log(`   👥 Пользователи: ${users.length}`)
-  console.log(`   📂 Категории: ${categories.length}`)
-  console.log(`   📦 3D-модели: ${author ? '3' : '0'}`)
-  console.log(`   🏭 Партнёры: ${partnerUser ? '1' : '0'}`)
-  console.log(`   🎨 Авторы: ${author ? '1' : '0'}`)
-  console.log('\n🔑 Демо-аккаунты:')
-  console.log('   📧 customer@demo.com / demo123 - Клиент')
-  console.log('   📧 author@demo.com / demo123 - Автор')
-  console.log('   📧 partner@demo.com / demo123 - Партнёр')
-  console.log('   📧 admin@demo.com / demo123 - Администратор')
+  // Партнёр 2 — Екатеринбург, дешевле электричество, ниже наценка
+  const p2 = await prisma.partner.create({
+    data: {
+      userId: partnerUser2.id,
+      companyName: "MakersHub Екатеринбург",
+      description: "FDM-печать в регионе, низкие цены",
+      address: "ул. Малышева, 12",
+      city: "Екатеринбург",
+      region: "Свердловская область",
+      country: "RU",
+      postalCode: "620014",
+      phone: "+7 343 000-00-00",
+      rating: 4.6,
+      isActive: true,
+      isVerified: true,
+    },
+  })
+  await prisma.partnerPricing.create({
+    data: {
+      partnerId: p2.id,
+      electricityRate: 4.5,
+      laborRate: 450,
+      consumablesPerHour: 4,
+      marginPct: 25,
+      minOrderPrice: 300,
+      setupMinutes: 10,
+      postProcessMinutes: 5,
+      wastePct: 5,
+      defaultShipping: 250,
+    },
+  })
+  await prisma.printerProfile.create({
+    data: {
+      partnerId: p2.id,
+      name: "Creality Ender 3 V3",
+      tech: "FDM",
+      buildX: 220,
+      buildY: 220,
+      buildZ: 250,
+      powerWatts: 110,
+      purchasePrice: 22000,
+      lifetimeHours: 5000,
+      volumetricSpeed: 14,
+      supportedMaterials: ["PLA", "PLA_PLUS", "PETG"],
+    },
+  })
+  await prisma.filament.createMany({
+    data: [
+      {
+        partnerId: p2.id,
+        type: "PLA",
+        brand: "FDplast",
+        colorName: "Синий",
+        colorHex: "#1d4ed8",
+        spoolPrice: 1100,
+        spoolWeight: 1000,
+        density: 1.24,
+        stockGrams: 5000,
+      },
+      {
+        partnerId: p2.id,
+        type: "PETG",
+        brand: "FDplast",
+        colorName: "Чёрный",
+        colorHex: "#111111",
+        spoolPrice: 1550,
+        spoolWeight: 1000,
+        density: 1.27,
+        stockGrams: 2000,
+      },
+    ],
+  })
+
+  // Категории
+  const cats = await Promise.all(
+    [
+      ["Украшения", "jewelry"],
+      ["Аксессуары", "accessories"],
+      ["Игрушки", "toys"],
+      ["Дом и интерьер", "home"],
+      ["Инженерные детали", "engineering"],
+      ["Арт-объекты", "art"],
+    ].map(([name, slug]) =>
+      prisma.modelCategory.create({ data: { name, slug, description: name } }),
+    ),
+  )
+
+  // Модели
+  await prisma.model3D.create({
+    data: {
+      title: "Кольцо с геометрией",
+      description: "Современное кольцо с геометрическим узором",
+      shortDescription: "Геометрическое кольцо",
+      categoryId: cats[0].id,
+      authorId: author.id,
+      price: 290,
+      isFree: false,
+      fileFormat: "STL",
+      fileSize: 12.5,
+      dimWidth: 25, dimHeight: 25, dimDepth: 8,
+      volume: 4,
+      tags: ["ювелирка", "геометрия"],
+      isFeatured: true,
+    },
+  })
+  await prisma.model3D.create({
+    data: {
+      title: "Декоративная ваза",
+      description: "Современная декоративная ваза для интерьера",
+      shortDescription: "Ваза",
+      categoryId: cats[3].id,
+      authorId: author.id,
+      price: 0,
+      isFree: true,
+      fileFormat: "STL",
+      fileSize: 45.2,
+      dimWidth: 120, dimHeight: 180, dimDepth: 120,
+      volume: 320,
+      tags: ["декор", "ваза"],
+    },
+  })
+
+  await prisma.shippingAddress.create({
+    data: {
+      userId: customer.id,
+      fullName: "Иван Иванов",
+      addressLine1: "ул. Тверская, д. 15",
+      city: "Москва",
+      region: "Москва",
+      postalCode: "125009",
+      country: "RU",
+      phone: "+7 999 123-45-67",
+      isDefault: true,
+    },
+  })
+
+  await prisma.platformConfig.create({
+    data: {
+      key: "platform_fee_pct",
+      value: 10,
+      description: "Комиссия маркетплейса в процентах",
+    },
+  })
+
+  console.log("✅ Готово.")
+  console.log("\nАккаунты (пароль demo123):")
+  console.log("  customer@demo.com  — клиент")
+  console.log("  author@demo.com    — автор")
+  console.log("  partner@demo.com   — партнёр (Москва)")
+  console.log("  partner2@demo.com  — партнёр (Екатеринбург)")
+  console.log("  admin@demo.com     — администратор")
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Ошибка при создании демо-данных:', e)
+  .catch(e => {
+    console.error(e)
     process.exit(1)
   })
   .finally(async () => {

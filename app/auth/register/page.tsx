@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
+import { signIn } from "next-auth/react"
 import { UserPlus, Mail, Lock, User, Eye, EyeOff, ArrowRight, Building, Palette } from "lucide-react"
 
 export default function RegisterPage() {
@@ -67,29 +68,37 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      toast({
-        title: "Регистрация успешна!",
-        description: "Аккаунт создан. Добро пожаловать!",
+      const role =
+        formData.userType === "author" ? "AUTHOR" : formData.userType === "partner" ? "PARTNER" : "CUSTOMER"
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role,
+        }),
       })
-      
-      // Redirect based on user type
-      setTimeout(() => {
-        if (formData.userType === "author") {
-          router.push("/author")
-        } else if (formData.userType === "partner") {
-          router.push("/partner")
-        } else {
-          router.push("/dashboard")
-        }
-      }, 1000)
-      
-    } catch (error) {
+      const body = await res.json()
+      if (!res.ok) {
+        toast({
+          title: "Ошибка регистрации",
+          description: body?.error ?? "Не удалось создать аккаунт",
+          variant: "destructive",
+        })
+        return
+      }
+      await signIn("credentials", { email: formData.email, password: formData.password, redirect: false })
+      toast({ title: "Регистрация успешна", description: "Добро пожаловать в ВекторФорм!" })
+      if (role === "PARTNER") router.push("/partner/onboarding")
+      else if (role === "AUTHOR") router.push("/author")
+      else router.push("/dashboard")
+      router.refresh()
+    } catch {
       toast({
         title: "Ошибка регистрации",
-        description: "Не удалось создать аккаунт. Попробуйте снова.",
+        description: "Сервер недоступен",
         variant: "destructive",
       })
     } finally {

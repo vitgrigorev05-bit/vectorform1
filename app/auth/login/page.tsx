@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -36,24 +37,22 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      // Mock authentication success
-      toast({
-        title: "Вход выполнен успешно",
-        description: "Добро пожаловать обратно!",
-      })
-      
-      // Redirect to dashboard
-      setTimeout(() => {
+      const res = await signIn("credentials", { email, password, redirect: false })
+      if (res?.error) {
+        toast({
+          title: "Ошибка входа",
+          description: "Неверный email или пароль",
+          variant: "destructive",
+        })
+      } else {
+        toast({ title: "Вход выполнен успешно" })
         router.push("/dashboard")
-      }, 1000)
-      
-    } catch (error) {
+        router.refresh()
+      }
+    } catch {
       toast({
         title: "Ошибка входа",
-        description: "Неверный email или пароль",
+        description: "Сервер недоступен",
         variant: "destructive",
       })
     } finally {
