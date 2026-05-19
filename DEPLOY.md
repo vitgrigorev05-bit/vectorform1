@@ -6,11 +6,17 @@
 
 1. Зарегистрируйтесь на https://console.neon.tech (можно через GitHub).
 2. **Create project** → имя `vectorforms`, регион ближе к EU (Frankfurt).
-3. После создания откройте **Dashboard → Connection Details**, переключите на **Pooled connection** и скопируйте строку вида:
+3. После создания нажмите **Connect** (справа сверху), включите **Pooled connection** и скопируйте строку вида:
    ```
-   postgresql://user:pass@ep-xyz-pooler.eu-central-1.aws.neon.tech/vectorforms?sslmode=require
+   postgresql://user:pass@ep-xyz-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
    ```
-4. Сохраните — пригодится в Шаге 3.
+   Это **`DATABASE_URL`** — используется приложением во время работы.
+4. Сделайте копию этой же строки и уберите из хоста суффикс **`-pooler`** — получится «direct» URL:
+   ```
+   postgresql://user:pass@ep-xyz.us-east-1.aws.neon.tech/neondb?sslmode=require
+   ```
+   Это **`DIRECT_URL`** — нужен только для миграций Prisma.
+5. Сохраните оба значения — пригодятся в Шаге 3.
 
 ## Шаг 2 — Локальная проверка (опционально)
 
@@ -40,7 +46,8 @@ npm run dev
 4. В разделе **Environment Variables** добавьте:
    | Имя | Значение |
    | --- | --- |
-   | `DATABASE_URL` | строка из Neon (Шаг 1) |
+   | `DATABASE_URL` | pooled-строка из Neon (Шаг 1.3) |
+   | `DIRECT_URL` | direct-строка из Neon (Шаг 1.4) |
    | `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
    | `NEXTAUTH_URL` | `https://<имя-проекта>.vercel.app` (обновите после первого деплоя) |
 5. **Deploy.** Первая сборка займёт 2-3 минуты, она автоматически создаст таблицы в Neon.
