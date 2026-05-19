@@ -89,8 +89,8 @@ export default function ContactPage() {
     {
       icon: Mail,
       title: "Email",
-      details: "info@vectorforms.com\nsupport@vectorforms.com",
-      link: "mailto:info@vectorforms.com"
+      details: "info@styleforms.com\nsupport@styleforms.com",
+      link: "mailto:info@styleforms.com"
     },
     {
       icon: Clock,
@@ -115,7 +115,7 @@ export default function ContactPage() {
       <div className="text-center max-w-3xl mx-auto mb-12">
         <h1 className="text-5xl font-bold mb-6">
           Свяжитесь с
-          <span className="gradient-text"> нами</span>
+          <span className="text-sf-red"> нами</span>
         </h1>
         <p className="text-xl text-gray-600">
           Мы всегда рады помочь и ответить на ваши вопросы

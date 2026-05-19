@@ -24,10 +24,10 @@ export default function AboutPage() {
       <div className="text-center max-w-3xl mx-auto mb-16">
         <h1 className="text-5xl font-bold mb-6">
           Мы создаём будущее
-          <span className="gradient-text"> 3D-печати</span>
+          <span className="text-sf-red"> 3D-печати</span>
         </h1>
         <p className="text-xl text-gray-600 mb-8">
-          ВекторФорм — это технологическая платформа, объединяющая дизайнеров, 
+          СтильФормы — это технологическая платформа, объединяющая дизайнеров, 
           производителей и клиентов в экосистеме распределённого производства.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">

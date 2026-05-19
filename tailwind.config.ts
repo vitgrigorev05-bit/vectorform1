@@ -1,5 +1,7 @@
 import type { Config } from "tailwindcss"
 
+// Дизайн-токены «СтильФормы» — см. макет на 14 экранов и стиль из PDF:
+// тёмно-синий #131936 (основа), красный #FF3B4D (акцент), Oswald uppercase.
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -10,9 +12,9 @@ const config: Config = {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: "1.5rem",
       screens: {
-        "2xl": "1400px",
+        "2xl": "1440px",
       },
     },
     extend: {
@@ -50,13 +52,15 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Brand colors
-        vector: {
-          blue: "#2563eb",
-          darkblue: "#1e40af",
-          graphite: "#374151",
-          purple: "#7c3aed",
-          red: "#dc2626",
+        sf: {
+          bg: "#131936",
+          bg2: "#1a2148",
+          bg3: "#222a5c",
+          red: "#FF3B4D",
+          redDark: "#E62A3C",
+          line: "#2a3370",
+          dim: "#7c84b8",
+          ink: "#e8ecff",
         },
       },
       borderRadius: {
@@ -65,8 +69,9 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Cal Sans", "Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        display: ["var(--font-oswald)", "Impact", "sans-serif"],
+        mono: ["ui-monospace", "SFMono-Regular", "monospace"],
       },
       keyframes: {
         "accordion-down": {
@@ -77,10 +82,7 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "fade-in": {
-          from: { opacity: "0" },
-          to: { opacity: "1" },
-        },
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
         "fade-up": {
           from: { opacity: "0", transform: "translateY(10px)" },
           to: { opacity: "1", transform: "translateY(0)" },

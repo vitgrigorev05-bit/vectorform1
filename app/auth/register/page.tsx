@@ -90,7 +90,7 @@ export default function RegisterPage() {
         return
       }
       await signIn("credentials", { email: formData.email, password: formData.password, redirect: false })
-      toast({ title: "Регистрация успешна", description: "Добро пожаловать в ВекторФорм!" })
+      toast({ title: "Регистрация успешна", description: "Добро пожаловать в СтильФормы!" })
       if (role === "PARTNER") router.push("/partner/onboarding")
       else if (role === "AUTHOR") router.push("/author")
       else router.push("/dashboard")
@@ -112,8 +112,8 @@ export default function RegisterPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-vector-blue to-vector-purple" />
-            <span className="text-2xl font-bold">ВекторФорм</span>
+            <div className="h-10 w-10 rounded-lg bg-sf-red" />
+            <span className="text-2xl font-bold">СтильФормы</span>
           </Link>
           <p className="text-gray-600 mt-2">
             Присоединяйтесь к платформе для 3D-печати и маркетплейса моделей

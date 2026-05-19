@@ -2,50 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* «СтильФормы»: тёмная тема по умолчанию, красный акцент, Oswald-заголовки.
+   shadcn-токены переопределены на dark navy палитру, чтобы все стандартные
+   компоненты (Button, Card, Input, Select…) сразу вписались в стиль. */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --background: 230 47% 14%;            /* #131936 */
+    --foreground: 230 100% 96%;           /* #e8ecff */
+    --card: 232 47% 19%;                  /* #1a2148 */
+    --card-foreground: 230 100% 96%;
+    --popover: 232 47% 19%;
+    --popover-foreground: 230 100% 96%;
+    --primary: 354 100% 62%;              /* #FF3B4D */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 230 35% 28%;
+    --secondary-foreground: 230 100% 96%;
+    --muted: 230 35% 24%;
+    --muted-foreground: 230 30% 70%;
+    --accent: 354 100% 62%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 354 100% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 47% 28%;                /* #2a3370 */
+    --input: 230 47% 22%;
+    --ring: 354 100% 62%;
     --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
   }
 }
 
@@ -54,26 +36,68 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(255, 59, 77, 0.06) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(34, 42, 92, 0.6) 0px, transparent 50%);
+    background-attachment: fixed;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1, h2, h3, h4, .display {
+    @apply font-display uppercase tracking-tight;
+    letter-spacing: -0.01em;
   }
 }
 
-/* Custom styles */
 @layer utilities {
-  .gradient-text {
-    @apply bg-gradient-to-r from-vector-blue to-vector-purple bg-clip-text text-transparent;
+  .sf-grid {
+    background-image:
+      linear-gradient(to right, rgba(124, 132, 184, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(124, 132, 184, 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
   }
-  
-  .card-hover {
-    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+
+  .sf-section { @apply py-20 md:py-28; }
+
+  .sf-eyebrow {
+    @apply inline-flex items-center gap-2 text-[11px] tracking-[0.25em] uppercase text-sf-dim font-mono;
   }
-  
-  .glass-effect {
-    @apply backdrop-blur-md bg-white/80 dark:bg-gray-900/80;
+
+  .sf-eyebrow::before {
+    content: "◆";
+    @apply text-sf-red;
   }
-  
-  .text-balance {
-    text-wrap: balance;
+
+  .sf-card {
+    @apply border border-sf-line bg-sf-bg2/60 backdrop-blur-sm rounded-xl;
   }
+
+  .sf-card-hover {
+    @apply sf-card transition-all duration-300 hover:border-sf-red/60 hover:bg-sf-bg2;
+  }
+
+  .sf-divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-sf-line to-transparent;
+  }
+
+  .sf-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-sf-red text-white font-display uppercase tracking-wider text-sm hover:bg-sf-redDark transition-colors;
+  }
+
+  .sf-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-sf-line text-sf-ink font-display uppercase tracking-wider text-sm hover:border-sf-red hover:text-sf-red transition-colors;
+  }
+
+  .sf-chip {
+    @apply inline-flex items-center px-2.5 py-1 text-[10px] tracking-[0.2em] uppercase border border-sf-line text-sf-dim font-mono;
+  }
+
+  .sf-chip-red {
+    @apply sf-chip border-sf-red text-sf-red;
+  }
+
+  .text-balance { text-wrap: balance; }
 }
+
+.scroll-hide::-webkit-scrollbar { display: none; }
+.scroll-hide { scrollbar-width: none; }

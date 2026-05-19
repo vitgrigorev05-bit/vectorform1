@@ -14,8 +14,8 @@ const faqCategories = [
     icon: HelpCircle,
     questions: [
       {
-        q: "Что такое ВекторФорм?",
-        a: "ВекторФорм — это платформа для автоматического расчёта стоимости 3D-печати, маркетплейс 3D-моделей и сеть производственных партнёров. Мы объединяем дизайнеров, клиентов и производителей в одной экосистеме."
+        q: "Что такое СтильФормы?",
+        a: "СтильФормы — это платформа для автоматического расчёта стоимости 3D-печати, маркетплейс 3D-моделей и сеть производственных партнёров. Мы объединяем дизайнеров, клиентов и производителей в одной экосистеме."
       },
       {
         q: "Как работает платформа?",
@@ -142,7 +142,7 @@ export default function FAQPage() {
       <div className="text-center max-w-3xl mx-auto mb-12">
         <h1 className="text-5xl font-bold mb-6">
           Центр помощи
-          <span className="gradient-text"> ВекторФорм</span>
+          <span className="text-sf-red"> СтильФормы</span>
         </h1>
         <p className="text-xl text-gray-600 mb-8">
           Ответы на часто задаваемые вопросы и руководства по использованию платформы
@@ -300,7 +300,7 @@ export default function FAQPage() {
                   <a href="/contact">Написать в поддержку</a>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
-                  <a href="mailto:support@vectorforms.com">support@vectorforms.com</a>
+                  <a href="mailto:support@styleforms.com">support@styleforms.com</a>
                 </Button>
               </div>
             </CardContent>
