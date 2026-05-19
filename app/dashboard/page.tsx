@@ -1,267 +1,106 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Package, Download, Heart, CreditCard, Settings, Upload } from "lucide-react"
+import Link from "next/link"
+import { DashboardShell, StatTile } from "@/components/sf/dashboard-shell"
+import { ScreenMeta, SfChip } from "@/components/sf/screen-meta"
+import { ArrowRight, Plus } from "lucide-react"
 
-// Mock data
-const orders = [
-  { id: "VF-123456", date: "2024-04-15", status: "В печати", total: 89.99, items: 1 },
-  { id: "VF-123455", date: "2024-04-10", status: "Отправлен", total: 124.50, items: 2 },
-  { id: "VF-123454", date: "2024-04-05", status: "Доставлен", total: 45.99, items: 1 },
-  { id: "VF-123453", date: "2024-03-28", status: "Доставлен", total: 67.25, items: 1 },
+// Экран 10 макета: ЛК Покупателя · Заказы. Sidebar + статистика + таблица.
+
+const ORDERS = [
+  { num: "СФ-241018", title: "Ваза «Турбулент»", partner: "ФабЛаб Москва", status: "В производстве", date: "18 окт", sum: "4 720 ₽" },
+  { num: "СФ-241015", title: "Кронштейн A-frame ×8", partner: "Кузница Урал", status: "Доставка", date: "15 окт", sum: "7 280 ₽" },
+  { num: "СФ-241009", title: "Сетчатый кроссовок MESH-01", partner: "ATOM·LAB", status: "Завершён", date: "9 окт", sum: "12 400 ₽" },
+  { num: "СФ-241002", title: "Фигурка «Аркадий» ×3", partner: "PRINTSPACE", status: "Завершён", date: "2 окт", sum: "5 440 ₽" },
+  { num: "СФ-240928", title: "Шестерня M16-T20 ×24", partner: "PEREDOVAYA", status: "Завершён", date: "28 сент", sum: "9 180 ₽" },
+  { num: "СФ-240920", title: "Стул «Палладий»", partner: "—", status: "Отклонён", date: "20 сент", sum: "—" },
 ]
 
-const downloads = [
-  { id: 1, name: "Декоративная ваза", date: "2024-04-12", type: "Бесплатно" },
-  { id: 2, name: "Тестовый куб", date: "2024-04-10", type: "Бесплатно" },
-  { id: 3, name: "Кольцо с узором", date: "2024-04-05", type: "Куплено", price: 24.99 },
-  { id: 4, name: "Арт-объект", date: "2024-03-20", type: "Куплено", price: 39.99 },
-]
-
-const favorites = [
-  { id: 1, name: "Современная лампа", author: "ДизайнСтудия", price: 34.99 },
-  { id: 2, name: "Органайзер для стола", author: "HomeDesign", price: 19.99 },
-  { id: 3, name: "Брелок с логотипом", author: "BrandArt", price: 9.99 },
-  { id: 4, name: "Декоративная скульптура", author: "ArtPrint3D", price: 49.99 },
+const SIDEBAR = [
+  { label: "Текущий заказ", href: "/dashboard" },
+  { label: "Мои заказы", href: "/dashboard", count: 6 },
+  { label: "Избранное", href: "/dashboard" },
+  { label: "Платежи", href: "/dashboard" },
+  { label: "Профиль", href: "/dashboard" },
+  { label: "Настройки", href: "/dashboard" },
 ]
 
 export default function DashboardPage() {
   return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Личный кабинет</h1>
-        <p className="text-gray-600">
-          Управляйте заказами, загрузками и настройками аккаунта
-        </p>
+    <DashboardShell
+      initials="ВП"
+      name="Виктор П."
+      role="Buyer · 24 заказа"
+      sidebar={SIDEBAR}
+      active="Мои заказы"
+    >
+      <ScreenMeta left="10 · ЛК Покупателя · Заказы" right="10 / 14" />
+
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+        <div>
+          <p className="sf-eyebrow mb-3">09 / Мои заказы</p>
+          <h1 className="font-display text-4xl md:text-5xl uppercase">
+            Заказы<span className="text-sf-red">.</span>
+          </h1>
+        </div>
+        <Link href="/print/upload" className="sf-btn-primary">
+          <Plus className="h-4 w-4" /> Новый заказ
+        </Link>
       </div>
 
-      {/* User Profile Header */}
-      <Card className="mb-8">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src="/api/placeholder/80/80" />
-              <AvatarFallback>ИИ</AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold">Иван Иванов</h2>
-              <p className="text-gray-600 mb-2">ivan@example.com</p>
-              <div className="flex flex-wrap gap-2">
-                <Badge>Клиент</Badge>
-                <Badge variant="outline">С нами с апреля 2024</Badge>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Настройки
-              </Button>
-              <Button className="gap-2">
-                <Upload className="h-4 w-4" />
-                Загрузить модель
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        <StatTile value="24" label="Всего заказов" hint="+3 в этом месяце" accent />
+        <StatTile value="2" label="В работе" hint="До доставки 5 дней" />
+        <StatTile value="182 400 ₽" label="Потрачено" hint="За год" />
+        <StatTile value="7 600 ₽" label="Средний чек" hint="+12% к прошлому году" />
+      </div>
 
-      {/* Dashboard Tabs */}
-      <Tabs defaultValue="orders" className="space-y-6">
-        <TabsList className="grid grid-cols-4 md:w-auto">
-          <TabsTrigger value="orders" className="gap-2">
-            <Package className="h-4 w-4" />
-            Заказы
-          </TabsTrigger>
-          <TabsTrigger value="downloads" className="gap-2">
-            <Download className="h-4 w-4" />
-            Загрузки
-          </TabsTrigger>
-          <TabsTrigger value="favorites" className="gap-2">
-            <Heart className="h-4 w-4" />
-            Избранное
-          </TabsTrigger>
-          <TabsTrigger value="billing" className="gap-2">
-            <CreditCard className="h-4 w-4" />
-            Платежи
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Orders Tab */}
-        <TabsContent value="orders" className="space-y-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold">История заказов</h3>
-            <Button variant="outline">Все заказы</Button>
-          </div>
-          
-          <div className="grid gap-4">
-            {orders.map((order) => (
-              <Card key={order.id}>
-                <CardContent className="p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h4 className="font-semibold">{order.id}</h4>
-                        <Badge
-                          className={
-                            order.status === "Доставлен"
-                              ? "bg-green-500"
-                              : order.status === "В печати"
-                              ? "bg-blue-500"
-                              : "bg-amber-500"
-                          }
-                        >
-                          {order.status}
-                        </Badge>
-                      </div>
-                      <p className="text-gray-600 text-sm">
-                        Заказ от {order.date} • {order.items} товар(ов)
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold mb-1">${order.total}</div>
-                      <Button variant="outline" size="sm">
-                        Подробнее
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+      <div className="sf-card p-0 overflow-hidden">
+        <div className="p-5 border-b border-sf-line flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            {["Все", "В работе", "Доставка", "Завершены"].map((t, i) => (
+              <button key={t} className={`px-3 py-1.5 border font-display uppercase text-xs tracking-wider ${i === 0 ? "border-sf-red text-sf-red" : "border-sf-line text-sf-dim hover:border-sf-red/40"}`}>
+                {t}
+              </button>
             ))}
           </div>
-        </TabsContent>
+          <input placeholder="Поиск…" className="h-9 px-3 bg-sf-bg border border-sf-line text-sm focus:border-sf-red outline-none" />
+        </div>
 
-        {/* Downloads Tab */}
-        <TabsContent value="downloads" className="space-y-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold">История загрузок</h3>
-            <Button variant="outline">Все файлы</Button>
-          </div>
-          
-          <div className="grid gap-4">
-            {downloads.map((item) => (
-              <Card key={item.id}>
-                <CardContent className="p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h4 className="font-semibold mb-1">{item.name}</h4>
-                      <div className="flex items-center gap-3">
-                        <span className="text-gray-600 text-sm">
-                          Загружено {item.date}
-                        </span>
-                        <Badge variant="outline">{item.type}</Badge>
-                        {item.price && (
-                          <span className="text-sm font-medium">${item.price}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        Скачать снова
-                      </Button>
-                      <Button size="sm">Заказать печать</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        <table className="w-full">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim">
+              <th className="text-left p-4 font-normal">Заказ</th>
+              <th className="text-left p-4 font-normal hidden md:table-cell">Партнёр</th>
+              <th className="text-left p-4 font-normal">Статус</th>
+              <th className="text-left p-4 font-normal hidden lg:table-cell">Дата</th>
+              <th className="text-right p-4 font-normal">Сумма</th>
+              <th className="w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {ORDERS.map((o, i) => (
+              <tr key={o.num} className="border-t border-sf-line hover:bg-sf-bg2/50">
+                <td className="p-4">
+                  <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim">{o.num}</div>
+                  <Link href={`/dashboard/orders/${o.num}`} className="font-display uppercase tracking-wider text-sm hover:text-sf-red">
+                    {o.title}
+                  </Link>
+                </td>
+                <td className="p-4 text-sm text-sf-ink/80 hidden md:table-cell">{o.partner}</td>
+                <td className="p-4">
+                  <SfChip variant={o.status === "В производстве" ? "live" : "default"}>{o.status}</SfChip>
+                </td>
+                <td className="p-4 text-sm text-sf-dim hidden lg:table-cell">{o.date}</td>
+                <td className="p-4 text-right font-display">{o.sum}</td>
+                <td className="p-4">
+                  <Link href={`/dashboard/orders/${o.num}`} className="text-sf-red hover:text-sf-redDark">
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </td>
+              </tr>
             ))}
-          </div>
-        </TabsContent>
-
-        {/* Favorites Tab */}
-        <TabsContent value="favorites" className="space-y-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold">Избранные модели</h3>
-            <Button variant="outline">Все избранное</Button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {favorites.map((item) => (
-              <Card key={item.id}>
-                <CardContent className="p-6">
-                  <div className="flex gap-4">
-                    <div className="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                      <div className="text-gray-400">3D</div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold truncate">{item.name}</h4>
-                      <p className="text-gray-600 text-sm truncate">
-                        от {item.author}
-                      </p>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="text-lg font-bold">${item.price}</div>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="ghost">
-                            <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                          </Button>
-                          <Button size="sm">В корзину</Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Billing Tab */}
-        <TabsContent value="billing" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Баланс</CardTitle>
-                <CardDescription>Текущий баланс и история транзакций</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <div className="text-4xl font-bold mb-2">$0.00</div>
-                  <p className="text-gray-600 mb-4">Текущий баланс</p>
-                  <Button>Пополнить баланс</Button>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Способы оплаты</CardTitle>
-                <CardDescription>Управление привязанными картами</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-12 bg-blue-500 rounded"></div>
-                      <div>
-                        <div className="font-medium">•••• 4242</div>
-                        <div className="text-sm text-gray-600">Visa</div>
-                      </div>
-                    </div>
-                    <Badge variant="outline">Основная</Badge>
-                  </div>
-                  
-                  <Button variant="outline" className="w-full">
-                    Добавить карту
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Последние транзакции</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>Нет транзакций за последний месяц</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+          </tbody>
+        </table>
+      </div>
+    </DashboardShell>
   )
 }

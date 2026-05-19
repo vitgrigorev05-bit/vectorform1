@@ -1,249 +1,211 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Filter, Search, Star, Download, ShoppingCart, Eye } from "lucide-react"
+"use client"
 
-// Mock data for marketplace
-const categories = [
-  { id: 1, name: "Украшения", count: 245 },
-  { id: 2, name: "Аксессуары", count: 189 },
-  { id: 3, name: "Fashion-дизайн", count: 156 },
-  { id: 4, name: "Игрушки", count: 312 },
-  { id: 5, name: "Домашние предметы", count: 278 },
-  { id: 6, name: "Инженерные детали", count: 134 },
-  { id: 7, name: "Арт-объекты", count: 98 },
-  { id: 8, name: "Подарки", count: 210 },
-]
+import Link from "next/link"
+import { useState } from "react"
+import { ScreenMeta, PageTitle, SfChip } from "@/components/sf/screen-meta"
+import { ArrowRight, Search, Star, Upload } from "lucide-react"
 
-const models = [
-  {
-    id: 1,
-    title: "Кольцо с геометрическим узором",
-    author: "ДизайнСтудия",
-    price: 24.99,
-    rating: 4.8,
-    downloads: 1245,
-    category: "Украшения",
-    tags: ["ювелирка", "мода", "геометрия"],
-    image: "/api/placeholder/400/300",
-    isFree: false,
-  },
-  {
-    id: 2,
-    title: "Декоративная ваза",
-    author: "ArtPrint3D",
-    price: 0,
-    rating: 4.5,
-    downloads: 2890,
-    category: "Домашние предметы",
-    tags: ["интерьер", "декор", "ваза"],
-    image: "/api/placeholder/400/300",
-    isFree: true,
-  },
-  {
-    id: 3,
-    title: "Кастомизированный чехол для телефона",
-    author: "TechDesign",
-    price: 14.99,
-    rating: 4.9,
-    downloads: 876,
-    category: "Аксессуары",
-    tags: ["чехол", "гаджеты", "персонализация"],
-    image: "/api/placeholder/400/300",
-    isFree: false,
-  },
-  {
-    id: 4,
-    title: "Архитектурный макет здания",
-    author: "АрхитекторПро",
-    price: 39.99,
-    rating: 4.7,
-    downloads: 543,
-    category: "Арт-объекты",
-    tags: ["архитектура", "макет", "дизайн"],
-    image: "/api/placeholder/400/300",
-    isFree: false,
-  },
-  {
-    id: 5,
-    title: "Образец для 3D-печати",
-    author: "PrintLab",
-    price: 0,
-    rating: 4.3,
-    downloads: 4321,
-    category: "Инженерные детали",
-    tags: ["тест", "образец", "калибровка"],
-    image: "/api/placeholder/400/300",
-    isFree: true,
-  },
-  {
-    id: 6,
-    title: "Модные серёжки",
-    author: "Fashion3D",
-    price: 19.99,
-    rating: 4.6,
-    downloads: 987,
-    category: "Fashion-дизайн",
-    tags: ["серьги", "бижутерия", "мода"],
-    image: "/api/placeholder/400/300",
-    isFree: false,
-  },
-  {
-    id: 7,
-    title: "Детская игрушка-конструктор",
-    author: "KidsDesign",
-    price: 9.99,
-    rating: 4.8,
-    downloads: 2100,
-    category: "Игрушки",
-    tags: ["игрушки", "дети", "конструктор"],
-    image: "/api/placeholder/400/300",
-    isFree: false,
-  },
-  {
-    id: 8,
-    title: "Декоративная подставка",
-    author: "HomeDecor3D",
-    price: 0,
-    rating: 4.4,
-    downloads: 1567,
-    category: "Домашние предметы",
-    tags: ["подставка", "организация", "декор"],
-    image: "/api/placeholder/400/300",
-    isFree: true,
-  },
+// Экран 03 макета: каталог моделей с фильтрами «КАТЕГОРИЯ / ТЕХНОЛОГИЯ /
+// ЦЕНА / ГОТОВНОСТЬ» и карточками моделей.
+
+const CATEGORIES = ["Все", "Декор", "Мебель", "Обувь", "Аксессуары", "Инженерия", "Сувениры"]
+const TECHS = ["Все", "FDM", "SLA", "SLS", "MJF"]
+const SORTS = ["Популярные", "Новые", "Цена ↑", "Цена ↓", "Рейтинг"]
+const READINESS = ["Готов к печати", "С исходниками", "Поддержка автора"]
+
+type Model = {
+  tag: string
+  fileTag: string
+  category: string
+  author: string
+  rating: number
+  reviews: number
+  title: string
+  price: number
+  badge?: "ТРЕНД" | "ХИТ" | "НОВИНКА"
+}
+
+const MODELS: Model[] = [
+  { tag: "ОБУВЬ",      fileTag: "M1.STL", category: "Обувь",       author: "STUDIO NEFT",   rating: 4.9, reviews: 1240, title: "Сетчатый кроссовок MESH-01", price: 4800, badge: "ТРЕНД" },
+  { tag: "ДЕКОР",      fileTag: "M2.STL", category: "Декор",       author: "ANNA VOLKOVA",  rating: 4.7, reviews: 870,  title: "Ваза «Турбулент»", price: 1900 },
+  { tag: "ИНЖЕНЕРИЯ",  fileTag: "M3.STL", category: "Инженерия",   author: "PRINT.BURO",    rating: 4.8, reviews: 3200, title: "Кронштейн A-frame", price: 650, badge: "ХИТ" },
+  { tag: "МЕБЕЛЬ",     fileTag: "M4.STL", category: "Мебель",      author: "FORM LAB",      rating: 4.6, reviews: 410,  title: "Стул «Палладий»", price: 6400 },
+  { tag: "ДЕКОР",      fileTag: "M5.STL", category: "Декор",       author: "YURI PETROV",   rating: 4.9, reviews: 980,  title: "Лампа «Купол M»", price: 3100 },
+  { tag: "СУВЕНИРЫ",   fileTag: "M6.STL", category: "Сувениры",    author: "KUB STUDIO",    rating: 4.8, reviews: 2100, title: "Фигурка «Аркадий»", price: 1450, badge: "НОВИНКА" },
+  { tag: "АКСЕССУАРЫ", fileTag: "M7.STL", category: "Аксессуары",  author: "ZVUK INDUSTRIAL", rating: 4.7, reviews: 320, title: "Наушники CONCEPT-3", price: 5400 },
+  { tag: "ИНЖЕНЕРИЯ",  fileTag: "M8.STL", category: "Инженерия",   author: "TECHPARTS.RU",  rating: 4.5, reviews: 5400, title: "Шестерня M16-T20", price: 290 },
 ]
 
 export default function MarketplacePage() {
+  const [category, setCategory] = useState("Все")
+  const [tech, setTech] = useState("Все")
+  const [sort, setSort] = useState("Популярные")
+  const [readiness, setReadiness] = useState<string[]>([])
+  const [priceMax, setPriceMax] = useState(10000)
+
+  const filtered = MODELS.filter(m =>
+    (category === "Все" || m.category === category) &&
+    m.price <= priceMax
+  )
+
   return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Маркетплейс 3D-моделей</h1>
-        <p className="text-gray-600">
-          Откройте для себя тысячи готовых 3D-моделей для печати
-        </p>
-      </div>
+    <div className="container py-10">
+      <ScreenMeta left="03 · Маркетплейс" right="03 / 14" />
 
-      {/* Search and Filters */}
-      <div className="mb-8">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Поиск моделей, авторов, тегов..."
-              className="pl-10"
-            />
-          </div>
-          <Button className="gap-2">
-            <Filter className="h-4 w-4" />
-            Фильтры
-          </Button>
-          <Button variant="outline">Сортировка: Популярные</Button>
-        </div>
+      <PageTitle
+        eyebrow="02 / Маркетплейс моделей"
+        title={<>Каталог<span className="text-sf-red">.</span></>}
+        subtitle={<>8 412 моделей от 320 авторов. Скачивай, печатай локально или закажи производство в один клик.</>}
+      >
+        <Link href="/print/upload" className="sf-btn-primary">
+          <Upload className="h-4 w-4" /> Загрузить свою
+        </Link>
+      </PageTitle>
 
-        {/* Categories */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <Badge variant="default" className="cursor-pointer">
-            Все категории
-          </Badge>
-          {categories.map((category) => (
-            <Badge key={category.id} variant="outline" className="cursor-pointer">
-              {category.name} ({category.count})
-            </Badge>
-          ))}
-        </div>
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-8 mt-12">
+        {/* Sidebar filters */}
+        <aside className="space-y-6">
+          <FilterBlock title="Категория">
+            <div className="space-y-1.5">
+              {CATEGORIES.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setCategory(c)}
+                  className={`w-full text-left px-3 py-2 font-display uppercase text-xs tracking-wider transition-colors ${
+                    category === c ? "bg-sf-red text-white" : "text-sf-ink/80 hover:bg-sf-bg2"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </FilterBlock>
 
-      {/* Models Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {models.map((model) => (
-          <Card key={model.id} className="card-hover overflow-hidden">
-            <div className="aspect-square bg-gray-100 relative overflow-hidden">
-              {/* Mock image */}
-              <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                <div className="text-gray-400 text-4xl">3D</div>
-              </div>
-              {model.isFree && (
-                <div className="absolute top-2 left-2">
-                  <Badge className="bg-green-500 hover:bg-green-600">Бесплатно</Badge>
-                </div>
-              )}
-              <div className="absolute top-2 right-2">
-                <Button size="icon" variant="ghost" className="bg-white/80 hover:bg-white">
-                  <Eye className="h-4 w-4" />
-                </Button>
+          <FilterBlock title="Технология">
+            <div className="grid grid-cols-3 gap-1.5">
+              {TECHS.slice(1).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTech(t)}
+                  className={`px-3 py-2 border font-display uppercase text-xs tracking-wider transition-colors ${
+                    tech === t ? "border-sf-red text-sf-red" : "border-sf-line text-sf-dim hover:border-sf-red/40"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </FilterBlock>
+
+          <FilterBlock title="Цена до">
+            <div className="space-y-3">
+              <input
+                type="range" min={100} max={20000} step={100} value={priceMax}
+                onChange={e => setPriceMax(Number(e.target.value))}
+                className="w-full accent-sf-red"
+              />
+              <div className="flex justify-between text-xs font-mono text-sf-dim">
+                <span>100 ₽</span>
+                <span className="text-sf-red">{priceMax.toLocaleString("ru-RU")} ₽</span>
               </div>
             </div>
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{model.title}</CardTitle>
-                  <CardDescription>от {model.author}</CardDescription>
-                </div>
-                {!model.isFree && (
-                  <div className="text-xl font-bold">${model.price}</div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="pb-2">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span className="ml-1 text-sm font-medium">{model.rating}</span>
-                </div>
-                <span className="text-gray-400 text-sm">•</span>
-                <span className="text-sm text-gray-600">{model.downloads.toLocaleString()} скачиваний</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="secondary" className="text-xs">
-                  {model.category}
-                </Badge>
-                {model.tags.slice(0, 2).map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter className="pt-2">
-              <div className="flex gap-2 w-full">
-                <Button variant="outline" size="sm" className="flex-1 gap-1">
-                  <ShoppingCart className="h-4 w-4" />
-                  В корзину
-                </Button>
-                <Button size="sm" className="flex-1 gap-1">
-                  <Download className="h-4 w-4" />
-                  {model.isFree ? "Скачать" : "Купить"}
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+          </FilterBlock>
 
-      {/* Pagination */}
-      <div className="flex justify-center items-center gap-2 mt-12">
-        <Button variant="outline" size="sm">
-          Назад
-        </Button>
-        <Button variant="outline" size="sm" className="w-10">
-          1
-        </Button>
-        <Button variant="outline" size="sm" className="w-10">
-          2
-        </Button>
-        <Button variant="outline" size="sm" className="w-10">
-          3
-        </Button>
-        <span className="mx-2">...</span>
-        <Button variant="outline" size="sm" className="w-10">
-          10
-        </Button>
-        <Button variant="outline" size="sm">
-          Вперёд
-        </Button>
+          <FilterBlock title="Готовность">
+            <div className="space-y-2">
+              {READINESS.map(r => (
+                <label key={r} className="flex items-center gap-2 text-sm text-sf-ink/80 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={readiness.includes(r)}
+                    onChange={() => setReadiness(s => s.includes(r) ? s.filter(x => x !== r) : [...s, r])}
+                    className="accent-sf-red"
+                  />
+                  {r}
+                </label>
+              ))}
+            </div>
+          </FilterBlock>
+        </aside>
+
+        {/* Catalog */}
+        <div>
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div className="flex items-center gap-3 text-sf-dim font-mono uppercase text-xs tracking-[0.2em]">
+              <span>{filtered.length} моделей · {category}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sf-dim" />
+                <input
+                  type="text"
+                  placeholder="Поиск моделей и авторов…"
+                  className="pl-10 pr-4 h-10 w-72 bg-sf-bg2 border border-sf-line text-sm focus:border-sf-red outline-none"
+                />
+              </div>
+              <select value={sort} onChange={e => setSort(e.target.value)} className="h-10 bg-sf-bg2 border border-sf-line px-3 font-display uppercase text-xs tracking-wider">
+                {SORTS.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(m => <ModelCard key={m.fileTag} m={m} />)}
+          </div>
+
+          <div className="mt-10 flex items-center justify-center gap-2 font-display uppercase text-sm tracking-wider">
+            {[1, 2, 3, 4].map(p => (
+              <button key={p} className={`h-10 w-10 border ${p === 1 ? "border-sf-red text-sf-red" : "border-sf-line text-sf-dim hover:border-sf-red/40"}`}>{p}</button>
+            ))}
+            <span className="text-sf-dim px-2">…</span>
+            <button className="h-10 w-10 border border-sf-line text-sf-dim hover:border-sf-red/40">12</button>
+          </div>
+        </div>
       </div>
     </div>
+  )
+}
+
+function FilterBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="sf-card p-5">
+      <h3 className="font-display uppercase text-xs tracking-[0.25em] text-sf-dim mb-4">{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+function ModelCard({ m }: { m: Model }) {
+  return (
+    <Link href={`/marketplace/${m.fileTag}`} className="sf-card-hover overflow-hidden group block">
+      <div className="aspect-[4/5] bg-gradient-to-br from-sf-bg2 to-sf-bg3 relative border-b border-sf-line">
+        <div className="absolute inset-0 sf-grid opacity-40" />
+        <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2">
+          <SfChip variant="red">{m.fileTag}</SfChip>
+          {m.badge && <SfChip variant="red">{m.badge}</SfChip>}
+        </div>
+        <div className="absolute bottom-3 right-3 flex items-center gap-1 text-xs font-mono text-sf-ink/90 bg-sf-bg/70 backdrop-blur px-2 py-1">
+          <Star className="h-3 w-3 text-sf-red fill-sf-red" /> {m.rating} · {m.reviews}
+        </div>
+      </div>
+      <div className="p-5">
+        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim">
+          <span>{m.tag}</span>
+          <span>{m.author}</span>
+        </div>
+        <h3 className="font-display text-lg uppercase mt-3 leading-tight group-hover:text-sf-red transition-colors min-h-[3rem]">
+          {m.title}
+        </h3>
+        <div className="mt-5 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim">от</span>
+            <span className="font-display text-xl ml-2">{m.price.toLocaleString("ru-RU")} ₽</span>
+          </div>
+          <span className="inline-flex items-center gap-1 text-sf-red text-xs font-display uppercase tracking-wider">
+            Заказать <ArrowRight className="h-3 w-3" />
+          </span>
+        </div>
+      </div>
+    </Link>
   )
 }

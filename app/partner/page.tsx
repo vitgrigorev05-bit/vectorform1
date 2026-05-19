@@ -1,409 +1,204 @@
-"use client"
+import Link from "next/link"
+import { DashboardShell, StatTile } from "@/components/sf/dashboard-shell"
+import { ScreenMeta, SfChip, DataRow } from "@/components/sf/screen-meta"
+import { TrendingUp, ArrowRight } from "lucide-react"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Calendar } from "@/components/ui/calendar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { Package, Clock, CheckCircle, AlertCircle, DollarSign, Printer, Settings, TrendingUp, CalendarDays } from "lucide-react"
+// Экраны 12 + 14 макета: ЛК Производителя — входящие заявки + статистика.
 
-// Mock data
-const pendingOrders = [
-  { id: "VF-123456", customer: "Иван Иванов", material: "PLA", volume: 480, estimatedTime: 18, proposedPrice: 89.99 },
-  { id: "VF-123455", customer: "Мария Петрова", material: "RESIN", volume: 320, estimatedTime: 12, proposedPrice: 124.50 },
-  { id: "VF-123454", customer: "Алексей Смирнов", material: "PETG", volume: 210, estimatedTime: 8, proposedPrice: 45.99 },
+const INCOMING = [
+  { num: "СФ-241101", title: "Лампа «Купол M» ×2", tech: "SLA, RESIN", customer: "ВП", budget: "6 400 ₽", days: "8 дней", quantity: 2 },
+  { num: "СФ-241102", title: "Кронштейн A-frame ×12", tech: "FDM, PETG", customer: "О«", budget: "7 200 ₽", days: "10 дней", quantity: 12 },
+  { num: "СФ-241103", title: "Ваза «Турбулент»", tech: "FDM, PLA", customer: "AV", budget: "2 100 ₽", days: "12 дней", quantity: 1 },
+  { num: "СФ-241104", title: "Наушники CONCEPT-3", tech: "SLA + POST", customer: "SZ", budget: "8 200 ₽", days: "5 дней", quantity: 2 },
 ]
 
-const activeOrders = [
-  { id: "VF-123453", customer: "Елена Козлова", material: "PLA", progress: 75, deadline: "2024-04-18" },
-  { id: "VF-123452", customer: "Дмитрий Новиков", material: "ABS", progress: 40, deadline: "2024-04-20" },
-  { id: "VF-123451", customer: "Анна Сидорова", material: "TPU", progress: 90, deadline: "2024-04-17" },
+const REVENUE_MONTHS = [
+  { m: "Май", v: 1030 },
+  { m: "Июн", v: 2060 },
+  { m: "Июл", v: 3090 },
+  { m: "Авг", v: 3500 },
+  { m: "Сен", v: 3900 },
+  { m: "Окт", v: 4120 },
 ]
 
-const completedOrders = [
-  { id: "VF-123450", customer: "Павел Иванов", material: "PLA", completed: "2024-04-15", revenue: 67.25 },
-  { id: "VF-123449", customer: "Ольга Петрова", material: "RESIN", completed: "2024-04-14", revenue: 89.99 },
-  { id: "VF-123448", customer: "Сергей Смирнов", material: "PETG", completed: "2024-04-13", revenue: 45.50 },
+const MATERIALS_SHARE = [
+  { name: "PETG", pct: 38 },
+  { name: "PLA", pct: 28 },
+  { name: "Resin", pct: 18 },
+  { name: "ABS", pct: 10 },
+  { name: "TPU", pct: 6 },
 ]
 
-const equipment = [
-  { id: 1, name: "Prusa i3 MK3S+", type: "FDM", status: "active", buildVolume: "250×210×210" },
-  { id: 2, name: "Anycubic Photon Mono X", type: "SLA", status: "active", buildVolume: "192×120×245" },
-  { id: 3, name: "Creality CR-10", type: "FDM", status: "maintenance", buildVolume: "300×300×400" },
+const SIDEBAR = [
+  { label: "Входящие", href: "/partner", count: 4 },
+  { label: "В работе", href: "/partner", count: 7 },
+  { label: "Статистика", href: "/partner" },
+  { label: "Анкета производства", href: "/partner/onboarding" },
+  { label: "Реквизиты", href: "/partner" },
+  { label: "Выплаты", href: "/partner" },
+  { label: "Логистика", href: "/partner" },
+  { label: "Документы", href: "/partner" },
 ]
 
-const revenueData = [
-  { month: "Янв", revenue: 3200 },
-  { month: "Фев", revenue: 3800 },
-  { month: "Мар", revenue: 4200 },
-  { month: "Апр", revenue: 4800 },
-  { month: "Май", revenue: 4500 },
-  { month: "Июн", revenue: 5200 },
-]
-
-export default function PartnerPage() {
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [selectedOrder, setSelectedOrder] = useState<string | null>(null)
-
-  const handleAcceptOrder = (orderId: string) => {
-    console.log("Accept order:", orderId)
-    // In real implementation, update order status via API
-  }
-
-  const handleRejectOrder = (orderId: string) => {
-    console.log("Reject order:", orderId)
-    // In real implementation, update order status via API
-  }
-
+export default function PartnerDashboard() {
   return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Кабинет партнёра</h1>
-        <p className="text-gray-600">
-          Управление заказами, оборудованием и статистикой
-        </p>
-      </div>
+    <DashboardShell
+      initials="ФМ"
+      name="ФабЛаб Москва"
+      role="Verified · 1 240 заказов"
+      verified
+      sidebar={SIDEBAR}
+      active="Входящие"
+    >
+      <ScreenMeta left="12 · ЛК Производителя · Входящие" right="12 / 14" />
 
-      {/* Partner Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Текущие заказы</p>
-                <p className="text-2xl font-bold mt-1">3</p>
-                <p className="text-sm text-gray-500 mt-1">в работе</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Package className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Доход за месяц</p>
-                <p className="text-2xl font-bold mt-1">$4,800</p>
-                <p className="text-sm text-green-600 mt-1">+15%</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Загрузка оборудования</p>
-                <p className="text-2xl font-bold mt-1">68%</p>
-                <p className="text-sm text-gray-500 mt-1">2 из 3 принтеров</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Printer className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Рейтинг</p>
-                <p className="text-2xl font-bold mt-1">4.8</p>
-                <p className="text-sm text-gray-500 mt-1">из 5.0</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Orders Management */}
-        <div className="lg:col-span-2 space-y-6">
-          <Tabs defaultValue="pending" className="w-full">
-            <TabsList className="grid grid-cols-3">
-              <TabsTrigger value="pending" className="gap-2">
-                <Clock className="h-4 w-4" />
-                Входящие
-              </TabsTrigger>
-              <TabsTrigger value="active" className="gap-2">
-                <Package className="h-4 w-4" />
-                В работе
-              </TabsTrigger>
-              <TabsTrigger value="completed" className="gap-2">
-                <CheckCircle className="h-4 w-4" />
-                Завершённые
-              </TabsTrigger>
-            </TabsList>
-            
-            {/* Pending Orders */}
-            <TabsContent value="pending" className="space-y-4">
-              {pendingOrders.map((order) => (
-                <Card key={order.id}>
-                  <CardContent className="p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-semibold">{order.id}</h4>
-                          <Badge variant="outline">{order.material}</Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <div className="text-gray-500">Клиент</div>
-                            <div className="font-medium">{order.customer}</div>
-                          </div>
-                          <div>
-                            <div className="text-gray-500">Объём</div>
-                            <div className="font-medium">{order.volume} см³</div>
-                          </div>
-                          <div>
-                            <div className="text-gray-500">Время печати</div>
-                            <div className="font-medium">{order.estimatedTime} ч</div>
-                          </div>
-                          <div>
-                            <div className="text-gray-500">Предложенная цена</div>
-                            <div className="font-medium">${order.proposedPrice}</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRejectOrder(order.id)}
-                        >
-                          Отклонить
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleAcceptOrder(order.id)}
-                        >
-                          Принять
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-            
-            {/* Active Orders */}
-            <TabsContent value="active" className="space-y-4">
-              {activeOrders.map((order) => (
-                <Card key={order.id}>
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <h4 className="font-semibold">{order.id}</h4>
-                            <Badge variant="default">{order.material}</Badge>
-                          </div>
-                          <div className="text-sm text-gray-500 mt-1">
-                            Клиент: {order.customer} • Срок: {order.deadline}
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          Обновить статус
-                        </Button>
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span>Прогресс печати</span>
-                          <span>{order.progress}%</span>
-                        </div>
-                        <Progress value={order.progress} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-            
-            {/* Completed Orders */}
-            <TabsContent value="completed" className="space-y-4">
-              {completedOrders.map((order) => (
-                <Card key={order.id}>
-                  <CardContent className="p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-semibold">{order.id}</h4>
-                          <Badge variant="outline">{order.material}</Badge>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Клиент: {order.customer} • Завершён: {order.completed}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xl font-bold mb-1">${order.revenue}</div>
-                        <Button variant="ghost" size="sm">
-                          Детали
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-          </Tabs>
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+        <div>
+          <p className="sf-eyebrow mb-3">11 / Входящие заказы</p>
+          <h1 className="font-display text-4xl md:text-5xl uppercase">
+            4 новых <span className="text-sf-red">заявки</span>
+          </h1>
+          <p className="text-sf-dim mt-3 max-w-xl">
+            Принять или отклонить — 15 минут на ответ, иначе уйдёт следующему партнёру.
+          </p>
         </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Equipment Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Printer className="h-5 w-5" />
-                Оборудование
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {equipment.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {item.type} • {item.buildVolume}мм
-                    </div>
-                  </div>
-                  <Badge
-                    variant={item.status === "active" ? "default" : "secondary"}
-                  >
-                    {item.status === "active" ? "Активен" : "Обслуживание"}
-                  </Badge>
-                </div>
-              ))}
-              <Button variant="outline" className="w-full mt-2 gap-2">
-                <Settings className="h-4 w-4" />
-                Управление оборудованием
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Calendar */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarDays className="h-5 w-5" />
-                Календарь загрузки
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="rounded-md border"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Revenue Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Доход по месяцам</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="revenue" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-sf-dim">
+            <input type="checkbox" className="accent-sf-red" />
+            Авто-приём
+          </label>
         </div>
       </div>
 
-      {/* Quick Settings */}
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Настройки партнёра</CardTitle>
-          <CardDescription>Управление профилем и параметрами работы</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-4">
-              <div>
-                <div className="font-medium mb-2">Доступные материалы</div>
-                <Select defaultValue="all">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите материалы" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Все материалы</SelectItem>
-                    <SelectItem value="pla">Только PLA</SelectItem>
-                    <SelectItem value="abs">ABS и PLA</SelectItem>
-                  </SelectContent>
-                </Select>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        <StatTile value="4" label="Новых" hint="за последние 24 часа" accent />
+        <StatTile value="7" label="В работе" />
+        <StatTile value="42" label="Завершено за месяц" />
+        <StatTile value="412 800 ₽" label="Выручка месяца" hint="↑ +22%" />
+      </div>
+
+      {/* Входящие */}
+      <div className="space-y-3 mb-12">
+        {INCOMING.map(o => (
+          <div key={o.num} className="sf-card p-6 hover:border-sf-red/60 transition-colors">
+            <div className="grid grid-cols-1 lg:grid-cols-[auto,1fr,auto,auto,auto,auto] gap-5 items-center">
+              <div className="h-16 w-16 bg-sf-bg border border-sf-line flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.2em] text-sf-dim">
+                MDL<br />.STL
               </div>
-              <Button variant="outline" className="w-full">
-                Обновить материалы
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
               <div>
-                <div className="font-medium mb-2">Максимальная загрузка</div>
-                <Select defaultValue="80">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите загрузку" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="60">60%</SelectItem>
-                    <SelectItem value="80">80%</SelectItem>
-                    <SelectItem value="100">100%</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button variant="outline" className="w-full">
-                Обновить настройки
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <div className="font-medium mb-2">Статус партнёра</div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                  <span>Активен и принимает заказы</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <SfChip variant="red">Новая</SfChip>
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim">
+                    {o.num} · {o.tech} · {o.customer}
+                  </span>
                 </div>
+                <h3 className="font-display text-lg uppercase mt-2">{o.title}</h3>
               </div>
+              <Mini label="Тираж" value={`${o.quantity} шт.`} />
+              <Mini label="Бюджет" value={o.budget} accent />
+              <Mini label="Срок" value={o.days} />
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1">
-                  Пауза
-                </Button>
-                <Button variant="destructive" className="flex-1">
-                  Неактивен
-                </Button>
+                <button className="sf-btn-ghost text-xs">Отклонить</button>
+                <button className="sf-btn-primary text-xs">Принять</button>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
+
+      {/* Статистика — экран 14 */}
+      <ScreenMeta left="14 · ЛК Производителя · Статистика" right="14 / 14" />
+
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
+        <div>
+          <p className="sf-eyebrow mb-3">13 / Статистика</p>
+          <h2 className="font-display text-3xl md:text-4xl uppercase">
+            Выручка<span className="text-sf-red">.</span>
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          {["7 дней", "Месяц", "Полгода", "Год"].map((t, i) => (
+            <button key={t} className={`px-3 py-1.5 border font-display uppercase text-xs tracking-wider ${i === 2 ? "border-sf-red text-sf-red" : "border-sf-line text-sf-dim hover:border-sf-red/40"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatTile value="1 792 К ₽" label="Выручка (полгода)" hint="↑ +38%" accent />
+        <StatTile value="164" label="Заказов" hint="↑ +12 к маю" />
+        <StatTile value="10 920 ₽" label="Средний чек" hint="↑ +22%" />
+        <StatTile value="4.9 / 5.0" label="Рейтинг" hint="↑ 1 240 отзывов" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr,1fr] gap-6">
+        {/* Bar chart */}
+        <section className="sf-card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <p className="sf-eyebrow">Выручка по месяцам</p>
+            <span className="text-xs font-mono uppercase tracking-[0.2em] text-sf-dim">
+              <TrendingUp className="inline h-3 w-3 text-sf-red mr-1" /> +38%
+            </span>
+          </div>
+          <div className="h-64 flex items-end gap-3 pt-4">
+            {REVENUE_MONTHS.map(({ m, v }) => {
+              const pct = (v / 4500) * 100
+              return (
+                <div key={m} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="text-[10px] font-mono text-sf-dim">{v}К</div>
+                  <div className="w-full bg-sf-bg border border-sf-line relative" style={{ height: "180px" }}>
+                    <div className="absolute bottom-0 left-0 right-0 bg-sf-red" style={{ height: `${pct}%` }} />
+                  </div>
+                  <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim">{m}</div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* К выплате + материалы */}
+        <div className="space-y-6">
+          <section className="sf-card p-6">
+            <p className="sf-eyebrow mb-4">К выплате</p>
+            <div className="font-display text-5xl text-sf-red">412 800 ₽</div>
+            <div className="text-xs font-mono uppercase tracking-[0.2em] text-sf-dim mt-2">
+              Доступно к выводу
+            </div>
+            <div className="mt-5 space-y-0">
+              <DataRow label="Завершено 42 заказа" value="432 К ₽" />
+              <DataRow label="Комиссия СтильФормы (4.5%)" value="–19.2 К ₽" />
+            </div>
+            <button className="mt-5 w-full sf-btn-primary">Запросить выплату</button>
+          </section>
+
+          <section className="sf-card p-6">
+            <p className="sf-eyebrow mb-4">Топ материалов</p>
+            <div className="space-y-3">
+              {MATERIALS_SHARE.map(m => (
+                <div key={m.name}>
+                  <div className="flex items-center justify-between text-xs font-mono uppercase tracking-[0.2em] mb-1">
+                    <span className="text-sf-ink">{m.name}</span>
+                    <span className="text-sf-red">{m.pct}%</span>
+                  </div>
+                  <div className="h-1.5 bg-sf-bg border border-sf-line">
+                    <div className="h-full bg-sf-red" style={{ width: `${m.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </DashboardShell>
+  )
+}
+
+function Mini({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim">{label}</div>
+      <div className={`font-display text-base mt-1 ${accent ? "text-sf-red" : ""}`}>{value}</div>
     </div>
   )
 }

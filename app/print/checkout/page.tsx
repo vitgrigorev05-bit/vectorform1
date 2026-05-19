@@ -1,401 +1,212 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Separator } from "@/components/ui/separator"
-import { Badge } from "@/components/ui/badge"
-import { CheckCircle, CreditCard, Lock, Package, Truck, User } from "lucide-react"
+import { Suspense, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { OrderStepBar } from "@/components/sf/step-bar"
+import { ScreenMeta, DataRow, SfChip } from "@/components/sf/screen-meta"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { ArrowRight, CreditCard, Truck, MapPin, Lock } from "lucide-react"
+
+// Экран 08 макета: «Подтвердить и оплатить» — спецификация заказа,
+// доставка (курьер/постамат/самовывоз), способ оплаты (карта/СБП/сплит),
+// промокод. Деньги в эскроу.
+
+const DELIVERY_OPTIONS = [
+  { id: "courier", title: "Курьером", sub: "1-2 дня" },
+  { id: "pickpoint", title: "Постамат", sub: "2-4 дня" },
+  { id: "self", title: "Самовывоз", sub: "сразу" },
+]
+
+const PAYMENT_OPTIONS = [
+  { id: "card", title: "Карта", sub: "•••• •••• •••• 4287" },
+  { id: "sbp", title: "СБП", sub: "по QR" },
+  { id: "split", title: "Сплит 4×", sub: "08/27" },
+]
 
 export default function CheckoutPage() {
-  const [orderDetails, setOrderDetails] = useState<any>(null)
-  const [paymentMethod, setPaymentMethod] = useState("card")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const { toast } = useToast()
+  return (
+    <Suspense fallback={<div className="container py-10 text-sf-dim">Загрузка…</div>}>
+      <Inner />
+    </Suspense>
+  )
+}
+
+function Inner() {
   const router = useRouter()
+  const { toast } = useToast()
+  const sp = useSearchParams()
+  const [delivery, setDelivery] = useState("courier")
+  const [payment, setPayment] = useState("card")
+  const [promo, setPromo] = useState("")
+  const [address, setAddress] = useState("Москва, ул. Большая Никитская, 12, кв. 48")
+  const [loading, setLoading] = useState(false)
 
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    postalCode: "",
-    country: "Россия",
-  })
+  // суммы — будут заменены реальным расчётом из URL
+  const partnerPrice = 12400
+  const postProcess = 600
+  const qc = 200
+  const shipping = 480
+  const total = partnerPrice + postProcess + qc + shipping
 
-  useEffect(() => {
-    // Get order details from session storage
-    const storedOrder = sessionStorage.getItem('orderDetails')
-    if (storedOrder) {
-      setOrderDetails(JSON.parse(storedOrder))
-    } else {
-      // Redirect if no order details
-      router.push('/print/calculate')
-    }
-  }, [router])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // Validate form
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.address || !formData.city) {
-      toast({
-        title: "Заполните все обязательные поля",
-        description: "Пожалуйста, проверьте данные формы",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsSubmitting(true)
-
+  async function pay() {
+    setLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Generate order number
-      const orderNumber = `VF-${Date.now().toString().slice(-6)}`
-      
-      toast({
-        title: "Заказ оформлен успешно!",
-        description: `Номер вашего заказа: ${orderNumber}`,
+      const partnerId = sp.get("partnerId")
+      if (!partnerId) {
+        toast({ title: "Не выбран партнёр", variant: "destructive" })
+        return
+      }
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uploadedFileId: sp.get("fileId") || undefined,
+          partnerId,
+          material: sp.get("material") || "PETG",
+          quality: sp.get("quality") || "STANDARD",
+          infillPct: Number(sp.get("infillPct") || 35),
+          quantity: Number(sp.get("quantity") || 1),
+          shippingAddress: {
+            fullName: "Иван Иванов",
+            addressLine1: address,
+            city: "Москва",
+            postalCode: "125009",
+            country: "RU",
+          },
+        }),
       })
-      
-      // Clear session storage
-      sessionStorage.removeItem('modelAnalysis')
-      sessionStorage.removeItem('orderDetails')
-      
-      // Redirect to order confirmation
-      setTimeout(() => {
-        router.push(`/orders/${orderNumber}`)
-      }, 2000)
-      
-    } catch (error) {
-      toast({
-        title: "Ошибка оформления заказа",
-        description: "Пожалуйста, попробуйте снова",
-        variant: "destructive",
-      })
+      const body = await res.json()
+      if (!res.ok) {
+        toast({ title: "Не удалось создать заказ", description: body?.error, variant: "destructive" })
+        return
+      }
+      toast({ title: "Заказ создан", description: `№ ${body.data.orderNumber}` })
+      router.push(`/dashboard/orders/${body.data.orderId}`)
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
-
-  if (!orderDetails) {
-    return (
-      <div className="container py-8">
-        <div className="text-center py-12">
-          <p className="text-gray-500">Загрузка деталей заказа...</p>
-        </div>
-      </div>
-    )
-  }
-
-  const { priceBreakdown, analysis, selectedMaterial, selectedColor, selectedQuality, selectedShipping, quantity } = orderDetails
 
   return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Оформление заказа</h1>
-        <p className="text-gray-600">
-          Проверьте детали заказа и заполните данные для доставки
-        </p>
-      </div>
+    <>
+      <OrderStepBar current={5} />
+      <div className="container py-12">
+        <ScreenMeta left="Превью" right="Шаг 5 / 6" />
 
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Order Details and Shipping */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Contact Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Контактная информация
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">Имя *</Label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Фамилия *</Label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Телефон</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        <h1 className="font-display text-4xl md:text-6xl uppercase leading-[0.95]">
+          Подтвердить и <span className="text-sf-red">оплатить</span>
+        </h1>
 
-            {/* Shipping Address */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Truck className="h-5 w-5" />
-                  Адрес доставки
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="address">Адрес *</Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    placeholder="Улица, дом, квартира"
-                    required
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="city">Город *</Label>
-                    <Input
-                      id="city"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="postalCode">Почтовый индекс</Label>
-                    <Input
-                      id="postalCode"
-                      name="postalCode"
-                      value={formData.postalCode}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="country">Страна</Label>
-                    <Input
-                      id="country"
-                      name="country"
-                      value={formData.country}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Payment Method */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Способ оплаты
-                </CardTitle>
-                <CardDescription>
-                  Оплата производится после подтверждения заказа
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup
-                  value={paymentMethod}
-                  onValueChange={setPaymentMethod}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem value="card" id="card" />
-                    <Label htmlFor="card" className="cursor-pointer flex-1">
-                      <div className="font-medium">Банковская карта</div>
-                      <div className="text-sm text-gray-500">
-                        Visa, Mastercard, МИР
-                      </div>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem value="transfer" id="transfer" />
-                    <Label htmlFor="transfer" className="cursor-pointer flex-1">
-                      <div className="font-medium">Банковский перевод</div>
-                      <div className="text-sm text-gray-500">
-                        Реквизиты будут отправлены на email
-                      </div>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem value="online" id="online" />
-                    <Label htmlFor="online" className="cursor-pointer flex-1">
-                      <div className="font-medium">Онлайн-кошелёк</div>
-                      <div className="text-sm text-gray-500">
-                        ЮMoney, Qiwi, WebMoney
-                      </div>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Order Summary */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,420px] gap-8 mt-10">
           <div className="space-y-6">
-            <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle>Детали заказа</CardTitle>
-                <CardDescription>
-                  {quantity} × 3D-печать
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Order Items */}
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="font-medium">3D-печать</div>
-                      <div className="text-sm text-gray-500">
-                        {selectedMaterial.name}, {selectedColor}, {selectedQuality.name}
-                      </div>
-                    </div>
-                    <div className="font-medium">
-                      ${(priceBreakdown?.total || 0).toFixed(2)}
-                    </div>
+            {/* Заказ */}
+            <section className="sf-card p-6">
+              <p className="sf-eyebrow mb-4">Заказ</p>
+              <div className="flex items-center gap-4">
+                <div className="h-20 w-20 bg-sf-bg border border-sf-line flex items-center justify-center font-display text-sf-red text-xl">V3</div>
+                <div className="flex-1">
+                  <div className="font-display text-lg uppercase">concept_v3.stl</div>
+                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-sf-dim mt-1">
+                    {sp.get("material") || "PETG"} · {sp.get("infillPct") || 35}% · 0.1 мм · {sp.get("quantity") || 1} шт.
                   </div>
-                  
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Доставка ({selectedShipping.name})</span>
-                    <span>${selectedShipping.price}</span>
+                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-sf-dim mt-1">
+                    Габариты 120×80×60 мм · Срок 5 дней
                   </div>
                 </div>
+              </div>
+            </section>
 
-                <Separator />
-
-                {/* Total */}
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Стоимость товаров</span>
-                    <span>${(priceBreakdown?.total || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Доставка</span>
-                    <span>${selectedShipping.price}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Итого</span>
-                    <span>
-                      ${((priceBreakdown?.total || 0) + selectedShipping.price).toFixed(2)}
-                    </span>
+            {/* Партнёр */}
+            <section className="sf-card p-6">
+              <p className="sf-eyebrow mb-4">Производство</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 flex items-center justify-center bg-sf-bg border border-sf-line font-display text-sf-red">ФМ</div>
+                  <div>
+                    <div className="font-display text-lg uppercase">ФабЛаб Москва</div>
+                    <div className="text-xs font-mono uppercase tracking-[0.2em] text-sf-dim mt-1">Москва · ★ 4.9</div>
                   </div>
                 </div>
+                <button className="sf-btn-ghost text-xs">Заменить</button>
+              </div>
+            </section>
 
-                {/* Model Details */}
-                <div className="pt-4 border-t">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Package className="h-5 w-5 text-gray-400" />
-                    <span className="font-medium">Параметры модели</span>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Размеры</span>
-                      <span>{analysis.dimensions.width}×{analysis.dimensions.height}×{analysis.dimensions.depth}мм</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Объём</span>
-                      <span>{analysis.volume} см³</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Материал</span>
-                      <Badge variant="outline">{selectedMaterial.name}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Качество</span>
-                      <Badge variant="outline">{selectedQuality.name}</Badge>
-                    </div>
-                  </div>
-                </div>
+            {/* Доставка */}
+            <section className="sf-card p-6">
+              <p className="sf-eyebrow mb-4">Доставка</p>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {DELIVERY_OPTIONS.map(d => (
+                  <button
+                    key={d.id}
+                    onClick={() => setDelivery(d.id)}
+                    className={`p-4 border text-left transition-colors ${delivery === d.id ? "border-sf-red bg-sf-bg2" : "border-sf-line hover:border-sf-red/40"}`}
+                  >
+                    <div className="font-display uppercase tracking-wider text-sm">{d.title}</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim mt-1">{d.sub}</div>
+                  </button>
+                ))}
+              </div>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim flex items-center gap-1 mb-2"><MapPin className="h-3 w-3" /> Адрес</span>
+                <input value={address} onChange={e => setAddress(e.target.value)} className="w-full h-12 bg-sf-bg border border-sf-line px-3 focus:border-sf-red outline-none" />
+              </label>
+            </section>
 
-                {/* Security and Guarantees */}
-                <div className="space-y-2 pt-4">
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <Lock className="h-4 w-4" />
-                    <span>Безопасная оплата</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Гарантия возврата</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Конфиденциальность данных</span>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full mt-6 gap-2"
-                  size="lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    "Оформление..."
-                  ) : (
-                    <>
-                      <Lock className="h-5 w-5" />
-                      Подтвердить заказ
-                    </>
-                  )}
-                </Button>
-
-                <div className="text-center text-xs text-gray-500 mt-4">
-                  Нажимая кнопку, вы соглашаетесь с условиями использования
-                  и политикой конфиденциальности
-                </div>
-              </CardContent>
-            </Card>
+            {/* Оплата */}
+            <section className="sf-card p-6">
+              <p className="sf-eyebrow mb-4">Способ оплаты</p>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {PAYMENT_OPTIONS.map(o => (
+                  <button
+                    key={o.id}
+                    onClick={() => setPayment(o.id)}
+                    className={`p-4 border text-left transition-colors ${payment === o.id ? "border-sf-red bg-sf-bg2" : "border-sf-line hover:border-sf-red/40"}`}
+                  >
+                    <div className="font-display uppercase tracking-wider text-sm flex items-center gap-2">
+                      {o.id === "card" && <CreditCard className="h-3 w-3" />}
+                      {o.title}
+                    </div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim mt-1">{o.sub}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs text-sf-dim flex items-center gap-2 mt-4">
+                <Lock className="h-3 w-3 text-sf-red" />
+                Деньги в эскроу. Партнёр получит оплату только после твоей приёмки.
+              </div>
+            </section>
           </div>
+
+          {/* Итого */}
+          <aside className="sf-card p-6 h-fit lg:sticky lg:top-24">
+            <p className="sf-eyebrow mb-3">Итого</p>
+            <div className="font-display text-5xl">{total.toLocaleString("ru-RU")} ₽</div>
+
+            <div className="mt-6 space-y-0">
+              <DataRow label={`Производство (${sp.get("material") || "PETG"}, ${sp.get("infillPct") || 35}%)`} value={`${partnerPrice.toLocaleString("ru-RU")} ₽`} />
+              <DataRow label="Постобработка" value={`${postProcess} ₽`} />
+              <DataRow label="Контроль качества" value={`${qc} ₽`} />
+              <DataRow label="Доставка по РФ" value={`${shipping} ₽`} />
+            </div>
+
+            <div className="mt-5">
+              <label className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim block mb-2">Промокод</label>
+              <div className="flex gap-2">
+                <input value={promo} onChange={e => setPromo(e.target.value)} placeholder="INVEST26" className="flex-1 h-11 bg-sf-bg border border-sf-line px-3 focus:border-sf-red outline-none uppercase tracking-wider text-sm" />
+                <button className="sf-btn-ghost text-xs">Применить</button>
+              </div>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-red mt-2">
+                Подсказка — INVEST26 даст −10%
+              </p>
+            </div>
+
+            <button onClick={pay} disabled={loading} className="mt-6 w-full sf-btn-primary justify-between disabled:opacity-40">
+              <span>{loading ? "Создаю заказ…" : "Оплатить и в эскроу"}</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </aside>
         </div>
-      </form>
-    </div>
+      </div>
+    </>
   )
 }

@@ -1,309 +1,172 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { CloudUpload, File, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { calculatePrintPrice, analyze3DModel } from "@/lib/utils"
+import Link from "next/link"
+import { OrderStepBar } from "@/components/sf/step-bar"
+import { ScreenMeta, DataRow, SfChip } from "@/components/sf/screen-meta"
+import { useToast } from "@/hooks/use-toast"
+import { ArrowRight, Upload as UploadIcon, ShoppingBag, Sparkles, RefreshCw } from "lucide-react"
+
+// Экран 04 макета: загрузка STL, drag-and-drop, мгновенный анализ геометрии,
+// 4 превью (TOP/FRONT/SIDE/ISO) и сводка справа.
 
 export default function UploadPage() {
-  const [file, setFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [analysis, setAnalysis] = useState<any>(null)
-  const { toast } = useToast()
   const router = useRouter()
+  const { toast } = useToast()
+  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [analysis, setAnalysis] = useState<any>(null)
+  const [fileId, setFileId] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (!selectedFile) return
-
-    // Check file type
-    const validExtensions = ['.stl', '.obj', '.3mf', '.step', '.fbx', '.glb', '.gltf']
-    const fileExtension = selectedFile.name.toLowerCase().substring(selectedFile.name.lastIndexOf('.'))
-    
-    if (!validExtensions.includes(fileExtension)) {
-      toast({
-        title: "Неподдерживаемый формат",
-        description: "Пожалуйста, загрузите файл в формате STL, OBJ, 3MF, STEP, FBX, GLB или GLTF",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check file size (max 500MB)
-    if (selectedFile.size > 500 * 1024 * 1024) {
-      toast({
-        title: "Файл слишком большой",
-        description: "Максимальный размер файла — 500 МБ",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setFile(selectedFile)
-    setAnalysis(null)
-  }
-
-  const handleUpload = async () => {
-    if (!file) return
-
-    setIsUploading(true)
-    
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval)
-          return 90
-        }
-        return prev + 10
-      })
-    }, 200)
-
+  async function upload(f: File) {
+    setLoading(true)
+    setFile(f)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Analyze the model
-      const analysisResult = analyze3DModel(file)
-      setAnalysis(analysisResult)
-      
-      setUploadProgress(100)
-      
-      toast({
-        title: "Модель успешно загружена",
-        description: "Анализ геометрии завершён",
-      })
-    } catch (error) {
-      toast({
-        title: "Ошибка загрузки",
-        description: "Не удалось загрузить файл. Попробуйте снова.",
-        variant: "destructive",
-      })
+      const form = new FormData()
+      form.append("file", f)
+      const res = await fetch("/api/upload", { method: "POST", body: form })
+      const body = await res.json()
+      if (!res.ok) {
+        toast({ title: "Ошибка загрузки", description: body?.error ?? "—", variant: "destructive" })
+        setFile(null)
+        return
+      }
+      setAnalysis(body.data.analysis)
+      setFileId(body.data.fileId)
+      toast({ title: "Файл загружен", description: `Объём ${body.data.analysis.volumeCm3.toFixed(1)} см³` })
     } finally {
-      clearInterval(interval)
-      setIsUploading(false)
+      setLoading(false)
     }
   }
 
-  const handleContinue = () => {
-    if (analysis) {
-      // Store analysis in session storage
-      sessionStorage.setItem('modelAnalysis', JSON.stringify(analysis))
-      sessionStorage.setItem('uploadedFile', JSON.stringify({
-        name: file?.name,
-        size: file?.size,
-      }))
-      router.push('/print/calculate')
-    }
+  function reset() {
+    setFile(null)
+    setAnalysis(null)
+    setFileId(null)
+    if (inputRef.current) inputRef.current.value = ""
   }
 
   return (
-    <div className="container py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold mb-2">Загрузите 3D-модель для расчёта</h1>
-          <p className="text-gray-600">
-            Загрузите файл модели, и система автоматически проанализирует геометрию и рассчитает стоимость печати
-          </p>
-        </div>
+    <>
+      <OrderStepBar current={1} />
+      <div className="container py-12">
+        <ScreenMeta left="Превью" right="Шаг 1 / 6" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Upload Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Загрузка модели</CardTitle>
-              <CardDescription>
-                Поддерживаемые форматы: STL, OBJ, 3MF, STEP, FBX, GLB, GLTF
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                  file
-                    ? "border-primary bg-primary/5"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
-                onClick={() => document.getElementById("file-upload")?.click()}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,360px] gap-8">
+          <div>
+            <h1 className="font-display text-4xl md:text-6xl uppercase leading-[0.95]">
+              Загрузи <span className="text-sf-red">3D-модель</span>
+            </h1>
+            <p className="text-sf-dim mt-4 max-w-2xl leading-relaxed">
+              Поддержка STL, OBJ, 3MF, STEP. Максимум 60 МБ.
+              Файл анализируется на ошибки геометрии за 4 секунды.
+            </p>
+
+            {!file && (
+              <label
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) upload(f) }}
+                className="mt-8 block sf-card border-dashed border-2 border-sf-line hover:border-sf-red transition-colors cursor-pointer p-16 text-center"
               >
-                <input
-                  id="file-upload"
-                  type="file"
-                  className="hidden"
-                  accept=".stl,.obj,.3mf,.step,.fbx,.glb,.gltf"
-                  onChange={handleFileChange}
-                />
-                {file ? (
-                  <>
-                    <File className="h-12 w-12 text-primary mx-auto mb-4" />
-                    <div className="font-medium">{file.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {(file.size / (1024 * 1024)).toFixed(2)} МБ
+                <input ref={inputRef} type="file" accept=".stl" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) upload(f) }} />
+                <UploadIcon className="h-12 w-12 mx-auto text-sf-red" />
+                <div className="mt-6 font-display text-2xl uppercase">Перетащи файл или нажми</div>
+                <p className="text-sf-dim text-sm mt-3">CONCEPT_V3.STL — пример. Можно сразу с рабочего стола.</p>
+              </label>
+            )}
+
+            {file && (
+              <div className="mt-8 sf-card p-6">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <SfChip variant="red">{(file.name.split(".").pop() ?? "STL").toUpperCase()}</SfChip>
+                      <span className="font-display text-lg">{file.name}</span>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="mt-4"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setFile(null)
-                        setAnalysis(null)
-                      }}
-                    >
-                      Удалить
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <CloudUpload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <div className="font-medium">Перетащите файл сюда</div>
-                    <div className="text-sm text-gray-500">
-                      или нажмите для выбора файла
-                    </div>
-                  </>
+                    {analysis && (
+                      <div className="text-xs font-mono uppercase tracking-[0.2em] text-sf-dim mt-2">
+                        {(file.size / 1024 / 1024).toFixed(1)} МБ · {analysis.triangleCount?.toLocaleString("ru-RU")} полигонов · Геометрия {analysis.isValid ? "OK" : "битая"}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={reset} className="sf-btn-ghost text-xs">
+                    <RefreshCw className="h-3 w-3" /> Заменить
+                  </button>
+                </div>
+
+                {loading && <div className="mt-6 text-sf-dim">Анализ…</div>}
+
+                {analysis && (
+                  <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-px bg-sf-line border border-sf-line">
+                    {[
+                      ["Объём", `${analysis.volumeCm3.toFixed(0)} см³`],
+                      ["Габариты", `${Math.round(analysis.bbox.x)}×${Math.round(analysis.bbox.y)}×${Math.round(analysis.bbox.z)}`],
+                      ["Полигоны", analysis.triangleCount?.toLocaleString("ru-RU") ?? "—"],
+                      ["Дефекты", analysis.isValid ? "Нет" : "Есть"],
+                    ].map(([l, v]) => (
+                      <div key={l} className="bg-sf-bg p-4">
+                        <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-sf-dim">{l}</div>
+                        <div className="font-display text-xl mt-1">{v}</div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
+            )}
 
-              {isUploading && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Загрузка и анализ...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} />
-                </div>
-              )}
+            {/* 4 view chips like in mockup */}
+            <div className="mt-6 flex gap-2">
+              {["TOP", "FRONT", "SIDE", "ISO"].map(v => (
+                <span key={v} className="sf-chip">{v}</span>
+              ))}
+            </div>
 
-              <Button
-                className="w-full gap-2"
-                onClick={handleUpload}
-                disabled={!file || isUploading}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Обработка...
-                  </>
-                ) : (
-                  <>
-                    <CloudUpload className="h-4 w-4" />
-                    Загрузить и проанализировать
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Link href="/marketplace" className="sf-btn-ghost justify-between">
+                <ShoppingBag className="h-4 w-4" />
+                <span>Выбрать из маркетплейса</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <button className="sf-btn-ghost justify-between opacity-60 cursor-not-allowed" disabled>
+                <Sparkles className="h-4 w-4" />
+                <span>Сгенерировать AI</span>
+                <span className="text-[10px] text-sf-dim">скоро</span>
+              </button>
+            </div>
+          </div>
 
-          {/* Analysis Results */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Результаты анализа</CardTitle>
-              <CardDescription>
-                {analysis
-                  ? "Модель проанализирована успешно"
-                  : "Здесь отобразится результат анализа"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {analysis ? (
-                <>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle className="h-5 w-5" />
-                      <span className="font-medium">Модель готова к печати</span>
-                    </div>
+          {/* Right panel: file analysis summary */}
+          <aside className="sf-card p-6 h-fit lg:sticky lg:top-24">
+            <p className="sf-eyebrow mb-4">Анализ файла</p>
+            <h3 className="font-display text-lg uppercase">
+              {analysis ? "Готов к расчёту" : "Жду файл"}
+            </h3>
+            <p className="text-sf-dim text-sm mt-2">
+              {analysis
+                ? "Можно переходить к подбору материала и партнёра."
+                : "После загрузки покажу объём, полигоны и дефекты геометрии."}
+            </p>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <div className="text-sm text-gray-500">Размеры</div>
-                        <div className="font-medium">
-                          {analysis.dimensions.width} × {analysis.dimensions.height} × {analysis.dimensions.depth} мм
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-sm text-gray-500">Объём</div>
-                        <div className="font-medium">{analysis.volume} см³</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-sm text-gray-500">Время печати</div>
-                        <div className="font-medium">{analysis.estimatedPrintTime} часов</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-sm text-gray-500">Материал</div>
-                        <div className="font-medium">{analysis.estimatedMaterialUsage} см³</div>
-                      </div>
-                    </div>
+            <div className="mt-6 space-y-0">
+              <DataRow label="Файл" value={file?.name ?? "—"} />
+              <DataRow label="Размер" value={file ? `${(file.size / 1024 / 1024).toFixed(1)} МБ` : "—"} />
+              <DataRow label="Объём" value={analysis ? `${analysis.volumeCm3.toFixed(0)} см³` : "—"} />
+              <DataRow label="Дефекты" value={analysis?.isValid === false ? "Есть" : "Нет"} accent={analysis?.isValid === false} />
+            </div>
 
-                    {analysis.needsSupports && (
-                      <div className="flex items-start gap-2 text-amber-600">
-                        <AlertCircle className="h-5 w-5 mt-0.5" />
-                        <div className="text-sm">
-                          <div className="font-medium">Требуются поддержки</div>
-                          <div>Объём поддержек: {analysis.supportVolume} см³</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {analysis.issues.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="font-medium text-sm">Потенциальные проблемы:</div>
-                        <ul className="space-y-1 text-sm text-gray-600">
-                          {analysis.issues.map((issue: any, index: number) => (
-                            <li key={index} className="flex items-center gap-2">
-                              <AlertCircle className="h-4 w-4 text-amber-500" />
-                              {issue.message}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-
-                  <Button className="w-full gap-2" onClick={handleContinue}>
-                    Перейти к расчёту стоимости
-                  </Button>
-                </>
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <File className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>Загрузите модель для анализа</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            <button
+              disabled={!fileId}
+              onClick={() => router.push(`/print/material-quiz?fileId=${fileId}`)}
+              className="mt-6 w-full sf-btn-primary justify-between disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span>Дальше — квиз</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </aside>
         </div>
-
-        {/* Tips */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="text-lg">Советы по подготовке модели</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Убедитесь, что модель водонепроницаема (без отверстий в оболочке)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Толщина стенок должна быть не менее 1-2 мм в зависимости от материала</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Удалите ненужные внутренние геометрии для экономии материала</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Проверьте, что все нормали направлены наружу</span>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
       </div>
-    </div>
+    </>
   )
 }
